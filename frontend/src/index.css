@@ -1,31 +1,75 @@
 @import "tailwindcss";
 
-@theme {
-  /* Accent — richer terracotta, confident clay */
-  --color-accent:       oklch(0.58 0.135 42);
-  --color-accent-hover: oklch(0.53 0.140 42);
-  --color-accent-light: oklch(0.93 0.030 44);
-  --color-accent-muted: oklch(0.72 0.080 44);
+:root {
+  /* ── Accent ──────────────────────────────────────────────────────────────── */
+  --color-accent:             oklch(0.58 0.135 42);
+  --color-accent-hover:       oklch(0.53 0.140 42);
+  --color-accent-light:       oklch(0.93 0.030 44);
+  --color-accent-muted:       oklch(0.72 0.080 44);
+  --color-accent-subtle:      oklch(0.91 0.045 44);
+  --color-accent-subtle-text: oklch(0.45 0.100 42);
 
-  /* Warm neutrals */
-  --color-cream:        oklch(0.885 0.016 72);
-  --color-cream-mid:    oklch(0.89 0.018 68);
-  --color-sidebar:      oklch(0.965 0.008 68);
-  --color-surface:      oklch(0.992 0.004 72);
+  /* ── Surfaces ────────────────────────────────────────────────────────────── */
+  --color-cream:              oklch(0.885 0.016 72);
+  --color-cream-mid:          oklch(0.89 0.018 68);
+  --color-sidebar:            oklch(0.965 0.008 68);
+  --color-surface:            oklch(0.992 0.004 72);
+  --color-surface-hover:      oklch(0.93 0.008 68);
+  --color-nav-hover:          oklch(0.92 0.014 72 / 0.7);
+  --color-border-card:        oklch(0.89 0.018 68 / 0.7);
+
+  /* ── Text ────────────────────────────────────────────────────────────────── */
+  --color-ink:                oklch(0.16 0.010 58);
+  --color-ink-rich:           oklch(0.26 0.010 58);
+  --color-ink-secondary:      oklch(0.42 0.020 55);
+  --color-ink-faint:          oklch(0.65 0.014 60);
+
+  /* ── Badges ──────────────────────────────────────────────────────────────── */
+  --color-badge-neutral:      oklch(0.40 0.010 58);
+  --color-badge-neutral-bg:   oklch(0.93 0.008 68);
+  --color-badge-accent:       oklch(0.45 0.100 42);
+  --color-badge-accent-bg:    oklch(0.91 0.045 44);
+
+  /* ── Tooltip ─────────────────────────────────────────────────────────────── */
+  --color-tooltip-bg:         oklch(0.14 0.010 58);
+  --color-tooltip-text:       oklch(0.96 0.004 72);
+  --color-tooltip-secondary:  oklch(0.85 0.008 68);
+
+  /* ── Status ──────────────────────────────────────────────────────────────── */
+  --color-success:            oklch(0.45 0.12 145);
+  --color-on-accent:          white;
+
+  /* ── Shadows (color-mix keeps them in sync with --color-ink) ─────────────── */
+  --shadow-card:     0 48px 96px -24px color-mix(in oklch, var(--color-ink) 17%, transparent),
+                     0 4px 12px color-mix(in oklch, var(--color-ink) 8%, transparent);
+  --shadow-flag:     0 0 0 1px color-mix(in oklch, var(--color-ink) 12%, transparent);
+  --shadow-dropdown: 0 8px 28px color-mix(in oklch, var(--color-ink) 12%, transparent);
+  --shadow-tooltip:  0 12px 40px color-mix(in oklch, var(--color-ink) 35%, transparent);
+}
+
+@theme inline {
+  /* Surfaces */
+  --color-cream:         var(--color-cream);
+  --color-cream-mid:     var(--color-cream-mid);
+  --color-sidebar:       var(--color-sidebar);
+  --color-surface:       var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+
+  /* Accent */
+  --color-accent:             var(--color-accent);
+  --color-accent-hover:       var(--color-accent-hover);
+  --color-accent-light:       var(--color-accent-light);
+  --color-accent-muted:       var(--color-accent-muted);
+  --color-accent-subtle:      var(--color-accent-subtle);
 
   /* Text */
-  --color-ink:          oklch(0.16 0.010 58);
-  --color-ink-secondary:oklch(0.42 0.020 55);
-  --color-ink-faint:    oklch(0.65 0.014 60);
+  --color-ink:           var(--color-ink);
+  --color-ink-rich:      var(--color-ink-rich);
+  --color-ink-secondary: var(--color-ink-secondary);
+  --color-ink-faint:     var(--color-ink-faint);
 
-  /* Legacy aliases */
-  --color-anthropic-tan:      oklch(0.58 0.135 42);
-  --color-anthropic-black:    oklch(0.16 0.010 58);
-  --color-anthropic-white:    oklch(0.992 0.004 72);
-  --color-anthropic-warm-gray:oklch(0.92 0.014 72);
-  --color-natural-sidebar:    oklch(0.965 0.008 68);
-
-  --font-sans: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  /* Fonts */
+  --font-sans:  "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
 }
 

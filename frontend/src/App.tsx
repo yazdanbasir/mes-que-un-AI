@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 const SpanishFlag = () => (
-  <svg width="16" height="11" viewBox="0 0 3 2" style={{ borderRadius: '3px', display: 'block', flexShrink: 0, boxShadow: '0 0 0 1px oklch(0.16 0.010 58 / 0.12)' }}>
+  <svg width="16" height="11" viewBox="0 0 3 2" style={{ borderRadius: '3px', display: 'block', flexShrink: 0, boxShadow: 'var(--shadow-flag)' }}>
     <rect width="3" height="2" fill="#c60b1e" />
     <rect y="0.5" width="3" height="1" fill="#ffc400" />
   </svg>
@@ -54,12 +54,12 @@ interface TooltipState {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SOURCE_META: Record<string, { label: string; color: string; bg: string }> = {
-  marca:          { label: 'Marca',         color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
-  as:             { label: 'AS',            color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
-  sport:          { label: 'Sport',         color: 'oklch(0.45 0.100 42)', bg: 'oklch(0.91 0.045 44)' },
-  mundodeportivo: { label: 'Mundo Dep.',    color: 'oklch(0.45 0.100 42)', bg: 'oklch(0.91 0.045 44)' },
-  lavanguardia:   { label: 'La Vanguardia', color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
-  elpais:         { label: 'El País',       color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
+  marca:          { label: 'Marca',         color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
+  as:             { label: 'AS',            color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
+  sport:          { label: 'Sport',         color: 'var(--color-badge-accent)',  bg: 'var(--color-badge-accent-bg)'  },
+  mundodeportivo: { label: 'Mundo Dep.',    color: 'var(--color-badge-accent)',  bg: 'var(--color-badge-accent-bg)'  },
+  lavanguardia:   { label: 'La Vanguardia', color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
+  elpais:         { label: 'El País',       color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
 };
 
 const FOOTBALL_KW = [
@@ -103,7 +103,7 @@ const Sidebar = ({
   return (
     <aside
       className="flex-shrink-0 bg-sidebar flex flex-col overflow-hidden"
-      style={{ width: collapsed ? '76px' : '375px', borderRight: '1px solid oklch(0.89 0.018 68)', transition: `width ${WIDTH_DURATION} ${EASE}` }}
+      style={{ width: collapsed ? '76px' : '375px', borderRight: '1px solid var(--color-cream-mid)', transition: `width ${WIDTH_DURATION} ${EASE}` }}
     >
       <div className="animate-fade-in flex-shrink-0" style={{ padding: collapsed ? '54px 0 48px' : '54px 44px 48px', transition: `padding ${WIDTH_DURATION} ${EASE}`, animationDelay: '0ms' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start' }}>
@@ -127,14 +127,14 @@ const Sidebar = ({
                 <button
                   onClick={() => setActiveTab(item.id)}
                   className="w-full text-left rounded-xl"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: collapsed ? '15px 23px' : '15px 22px', background: isActive ? 'oklch(0.91 0.045 44)' : 'transparent', transition: 'background 0.2s ease' }}
-                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.92 0.014 72 / 0.7)'; }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: collapsed ? '15px 23px' : '15px 22px', background: isActive ? 'var(--color-accent-subtle)' : 'transparent', transition: 'background 0.2s ease' }}
+                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-nav-hover)'; }}
                   onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  <Icon size={20} style={{ flexShrink: 0, color: 'oklch(0.16 0.010 58)' }} />
+                  <Icon size={20} style={{ flexShrink: 0, color: 'var(--color-ink)' }} />
                   <div style={{ overflow: 'hidden', opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : '220px', marginLeft: collapsed ? 0 : '14px', whiteSpace: 'nowrap', transition: textTransition }}>
-                    <span className="block leading-tight" style={{ fontSize: '16px', fontWeight: isActive ? 700 : 500, color: 'oklch(0.16 0.010 58)', letterSpacing: '-0.01em' }}>{item.label}</span>
-                    <span className="block leading-tight" style={{ fontSize: '13px', fontWeight: 500, color: isActive ? 'oklch(0.42 0.020 55)' : 'oklch(0.65 0.014 60)', letterSpacing: '0.01em', marginTop: '4px' }}>{item.sublabel}</span>
+                    <span className="block leading-tight" style={{ fontSize: '16px', fontWeight: isActive ? 700 : 500, color: 'var(--color-ink)', letterSpacing: '-0.01em' }}>{item.label}</span>
+                    <span className="block leading-tight" style={{ fontSize: '13px', fontWeight: 500, color: isActive ? 'var(--color-ink-secondary)' : 'var(--color-ink-faint)', letterSpacing: '0.01em', marginTop: '4px' }}>{item.sublabel}</span>
                   </div>
                 </button>
               </li>
@@ -143,7 +143,7 @@ const Sidebar = ({
         </ul>
       </nav>
 
-      <div className="animate-fade-in flex-shrink-0 flex items-center" style={{ borderTop: '1px solid oklch(0.89 0.018 68)', padding: collapsed ? '36px 0' : '36px 20px', justifyContent: collapsed ? 'center' : 'space-between', transition: `padding ${WIDTH_DURATION} ${EASE}`, animationDelay: '400ms' }}>
+      <div className="animate-fade-in flex-shrink-0 flex items-center" style={{ borderTop: '1px solid var(--color-cream-mid)', padding: collapsed ? '36px 0' : '36px 20px', justifyContent: collapsed ? 'center' : 'space-between', transition: `padding ${WIDTH_DURATION} ${EASE}`, animationDelay: '400ms' }}>
         <span style={{ flexShrink: 0, opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : '16px', overflow: 'hidden', display: 'flex', transition: textTransition }}><SpanishFlag /></span>
         <p className="text-ink-faint uppercase" style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.14em', textAlign: 'center', flex: collapsed ? '0 0 0px' : 1, opacity: collapsed ? 0 : 1, overflow: 'hidden', whiteSpace: 'nowrap', transition: textTransition }}>
           A language learning app
@@ -308,7 +308,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
-      <div className="w-full flex overflow-hidden" style={{ maxWidth: '1280px', height: '90vh', background: 'oklch(0.992 0.004 72)', borderRadius: '28px', boxShadow: '0 48px 96px -24px oklch(0.16 0.010 58 / 0.17), 0 4px 12px oklch(0.16 0.010 58 / 0.08)', border: '1px solid oklch(0.89 0.018 68 / 0.7)' }}>
+      <div className="w-full flex overflow-hidden" style={{ maxWidth: '1280px', height: '90vh', background: 'var(--color-surface)', borderRadius: '28px', boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border-card)' }}>
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} collapsed={collapsed} setCollapsed={setCollapsed} />
 
         <main className="flex-1 bg-surface flex flex-col overflow-hidden">
@@ -322,23 +322,23 @@ export default function App() {
             {activeTab === 'articles' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* Font size */}
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid oklch(0.89 0.018 68)', borderRadius: '10px', overflow: 'hidden' }}>
-                  <button onClick={() => adjustFontSize(-1)} className="text-ink-faint hover:text-ink transition-colors duration-150" style={{ padding: '7px 11px', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }} onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'} onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}>A−</button>
-                  <div style={{ width: '1px', alignSelf: 'stretch', background: 'oklch(0.89 0.018 68)', flexShrink: 0 }} />
-                  <button onClick={() => adjustFontSize(1)} className="text-ink-faint hover:text-ink transition-colors duration-150" style={{ padding: '7px 11px', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }} onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'} onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}>A+</button>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--color-cream-mid)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <button onClick={() => adjustFontSize(-1)} className="text-ink-faint hover:text-ink transition-colors duration-150" style={{ padding: '7px 11px', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }} onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'} onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}>A−</button>
+                  <div style={{ width: '1px', alignSelf: 'stretch', background: 'var(--color-cream-mid)', flexShrink: 0 }} />
+                  <button onClick={() => adjustFontSize(1)} className="text-ink-faint hover:text-ink transition-colors duration-150" style={{ padding: '7px 11px', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }} onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'} onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}>A+</button>
                 </div>
 
                 {/* Source filter */}
                 <div ref={filterRef} style={{ position: 'relative' }}>
-                  <button onClick={() => setShowFilter(f => !f)} className="flex items-center gap-2 transition-colors duration-150" style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid oklch(0.89 0.018 68)', background: filterSource ? 'oklch(0.91 0.045 44)' : 'transparent', color: filterSource ? 'oklch(0.45 0.100 42)' : 'oklch(0.65 0.014 60)', cursor: 'pointer' }} onMouseEnter={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'; }} onMouseLeave={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                  <button onClick={() => setShowFilter(f => !f)} className="flex items-center gap-2 transition-colors duration-150" style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: filterSource ? 'var(--color-accent-subtle)' : 'transparent', color: filterSource ? 'var(--color-accent-subtle-text)' : 'var(--color-ink-faint)', cursor: 'pointer' }} onMouseEnter={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'; }} onMouseLeave={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
                     <SlidersHorizontal size={14} />
                   </button>
                   {showFilter && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'oklch(0.992 0.004 72)', border: '1px solid oklch(0.89 0.018 68)', borderRadius: '14px', padding: '6px', boxShadow: '0 8px 28px oklch(0.16 0.010 58 / 0.12)', zIndex: 20, minWidth: '168px' }}>
+                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--color-surface)', border: '1px solid var(--color-cream-mid)', borderRadius: '14px', padding: '6px', boxShadow: 'var(--shadow-dropdown)', zIndex: 20, minWidth: '168px' }}>
                       {([null, ...availableSources] as (string | null)[]).map(src => {
                         const isSelected = filterSource === src;
                         return (
-                          <button key={src ?? '__all__'} onClick={() => { setFilterSource(src); setShowFilter(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: isSelected ? 600 : 500, color: isSelected ? 'oklch(0.45 0.100 42)' : 'oklch(0.16 0.010 58)', background: isSelected ? 'oklch(0.91 0.045 44)' : 'transparent', cursor: 'pointer', transition: 'background 0.15s ease' }} onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'; }} onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                          <button key={src ?? '__all__'} onClick={() => { setFilterSource(src); setShowFilter(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: isSelected ? 600 : 500, color: isSelected ? 'var(--color-accent-subtle-text)' : 'var(--color-ink)', background: isSelected ? 'var(--color-accent-subtle)' : 'transparent', cursor: 'pointer', transition: 'background 0.15s ease' }} onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'; }} onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
                             {src === null ? 'Todas las fuentes' : (SOURCE_META[src]?.label ?? src)}
                           </button>
                         );
@@ -360,13 +360,13 @@ export default function App() {
               ) : (
                 <div>
                   {displayedArticles.map((a, i) => {
-                    const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
+                    const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' };
                     const dateStr = a.published_at ?? a.fetched_at;
                     const isExpanded = expandedId === a.id;
                     const contentIndent = a.image_url ? '88px' : '0';
 
                     return (
-                      <article key={a.id} style={{ padding: '24px 0', borderTop: i > 0 ? '1px solid oklch(0.89 0.018 68)' : 'none' }}>
+                      <article key={a.id} style={{ padding: '24px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none' }}>
 
                         {/* Card header row */}
                         <button onClick={() => handleExpand(a.id)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: '16px', alignItems: 'flex-start', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
@@ -393,14 +393,14 @@ export default function App() {
                               const ns = narratives[a.id];
                               if (!ns || ns === 'error') return null;
                               return (
-                                <div style={{ background: 'oklch(0.965 0.008 68)', borderRadius: '12px', padding: '20px 24px', marginBottom: '28px' }}>
-                                  <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'oklch(0.58 0.135 42)', display: 'block', marginBottom: '12px' }}>
+                                <div style={{ background: 'var(--color-sidebar)', borderRadius: '12px', padding: '20px 24px', marginBottom: '28px' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-accent)', display: 'block', marginBottom: '12px' }}>
                                     Lectura fácil
                                   </span>
                                   {ns === 'loading' ? (
                                     <p className="text-ink-faint" style={{ fontSize: '15px' }}>Generando…</p>
                                   ) : (
-                                    <p className="font-serif" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, color: 'oklch(0.26 0.010 58)' }}>{ns}</p>
+                                    <p className="font-serif" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, color: 'var(--color-ink-rich)' }}>{ns}</p>
                                   )}
                                 </div>
                               );
@@ -421,7 +421,7 @@ export default function App() {
                               })()}
                             </div>
 
-                            <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-ink transition-colors duration-150" style={{ fontSize: '13px', fontWeight: 600, color: 'oklch(0.58 0.135 42)', marginTop: '6px', display: 'inline-flex' }}>
+                            <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-ink transition-colors duration-150" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-accent)', marginTop: '6px', display: 'inline-flex' }}>
                               Leer en {meta.label}<ExternalLink size={12} />
                             </a>
                           </div>
@@ -454,14 +454,14 @@ export default function App() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     {deck.map((p, i) => (
-                      <div key={p.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid oklch(0.89 0.018 68)' : 'none' }}>
+                      <div key={p.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                               <span className="font-sans text-ink" style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>{p.phrase}</span>
-                              {p.source && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: SOURCE_META[p.source]?.color ?? 'oklch(0.40 0.010 58)', background: SOURCE_META[p.source]?.bg ?? 'oklch(0.93 0.008 68)' }}>{SOURCE_META[p.source]?.label ?? p.source}</span>}
+                              {p.source && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: SOURCE_META[p.source]?.color ?? 'var(--color-badge-neutral)', background: SOURCE_META[p.source]?.bg ?? 'var(--color-badge-neutral-bg)' }}>{SOURCE_META[p.source]?.label ?? p.source}</span>}
                             </div>
-                            {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'oklch(0.58 0.135 42)', marginBottom: '4px' }}>{p.translation}</p>}
+                            {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '4px' }}>{p.translation}</p>}
                             {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: '14px', lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
                             <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, fontStyle: 'italic' }}>"{p.sentence}"</p>
                           </div>
@@ -489,22 +489,22 @@ export default function App() {
             left: tooltip.x,
             top: tooltip.y > 200 ? tooltip.y - 8 : tooltip.y + 8,
             transform: tooltip.y > 200 ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
-            background: 'oklch(0.14 0.010 58)',
-            color: 'oklch(0.96 0.004 72)',
+            background: 'var(--color-tooltip-bg)',
+            color: 'var(--color-tooltip-text)',
             borderRadius: '14px',
             padding: '16px 18px',
             width: '300px',
-            boxShadow: '0 12px 40px oklch(0.16 0.010 58 / 0.35)',
+            boxShadow: 'var(--shadow-tooltip)',
             zIndex: 50,
           }}
         >
-          <p className="font-sans" style={{ fontWeight: 700, fontSize: '15px', marginBottom: '10px', color: 'oklch(0.96 0.004 72)' }}>{tooltip.phrase}</p>
+          <p className="font-sans" style={{ fontWeight: 700, fontSize: '15px', marginBottom: '10px', color: 'var(--color-tooltip-text)' }}>{tooltip.phrase}</p>
           {tooltip.loading ? (
-            <p style={{ fontSize: '13px', color: 'oklch(0.65 0.014 60)' }}>Buscando…</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-ink-faint)' }}>Buscando…</p>
           ) : (
             <>
-              {tooltip.definition && <p className="font-serif" style={{ fontSize: '14px', lineHeight: 1.6, color: 'oklch(0.85 0.008 68)', marginBottom: '8px' }}>{tooltip.definition}</p>}
-              {tooltip.translation && <p style={{ fontSize: '13px', color: 'oklch(0.58 0.135 42)', fontWeight: 600, marginBottom: '14px' }}>{tooltip.translation}</p>}
+              {tooltip.definition && <p className="font-serif" style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--color-tooltip-secondary)', marginBottom: '8px' }}>{tooltip.definition}</p>}
+              {tooltip.translation && <p style={{ fontSize: '13px', color: 'var(--color-accent)', fontWeight: 600, marginBottom: '14px' }}>{tooltip.translation}</p>}
               <button
                 onClick={handleSave}
                 style={{
@@ -513,8 +513,8 @@ export default function App() {
                   gap: '6px',
                   padding: '7px 14px',
                   borderRadius: '8px',
-                  background: tooltip.saved ? 'oklch(0.45 0.12 145)' : 'oklch(0.58 0.135 42)',
-                  color: 'white',
+                  background: tooltip.saved ? 'var(--color-success)' : 'var(--color-accent)',
+                  color: 'var(--color-on-accent)',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: 'pointer',
