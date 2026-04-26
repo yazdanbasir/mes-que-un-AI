@@ -34,6 +34,20 @@ const SOURCE_META: Record<string, { label: string; color: string; bg: string }> 
   elpais:         { label: 'El País',       color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
 };
 
+const FOOTBALL_KW = [
+  'fútbol', 'futbol', 'laliga', 'la liga', 'champions', 'gol', 'golazo', 'partido',
+  'barça', 'barca', 'barcelona', 'real madrid', 'atlético', 'atletico', 'villarreal',
+  'sevilla', 'valencia', 'betis', 'athletic', 'sociedad', 'osasuna', 'girona',
+  'espanyol', 'getafe', 'celta', 'rayo vallecano', 'mallorca', 'premier league',
+  'bundesliga', 'serie a', 'ligue 1', 'mundial', 'eurocopa', 'selección', 'portero',
+  'delantero', 'centrocampista', 'goleador', 'remate', 'penalti', 'offside',
+];
+
+function isFootball(a: Article): boolean {
+  const text = `${a.title} ${a.summary ?? ''}`.toLowerCase();
+  return FOOTBALL_KW.some(kw => text.includes(kw));
+}
+
 function timeAgo(dateStr: string): string {
   const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
   if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`;
@@ -77,7 +91,7 @@ const Sidebar = ({
           animationDelay: '0ms',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div
             className="bg-accent flex-shrink-0"
             style={{
@@ -280,6 +294,18 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [articleContent, setArticleContent] = useState<Record<string, string | 'loading' | 'error'>>({});
+  const [articleFontSize, setArticleFontSize] = useState<number>(() => {
+    const stored = localStorage.getItem('article-font-size');
+    return stored ? parseInt(stored, 10) : 17;
+  });
+
+  const adjustFontSize = (delta: number) => {
+    setArticleFontSize(prev => {
+      const next = Math.max(14, Math.min(26, prev + delta));
+      localStorage.setItem('article-font-size', String(next));
+      return next;
+    });
+  };
   const [filterSource, setFilterSource] = useState<string | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -304,9 +330,9 @@ export default function App() {
   }, [showFilter]);
 
   const availableSources = [...new Set(articles.map(a => a.source))];
-  const displayedArticles = filterSource
-    ? articles.filter(a => a.source === filterSource)
-    : articles;
+  const displayedArticles = articles
+    .filter(a => !filterSource || a.source === filterSource)
+    .filter(isFootball);
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
@@ -343,6 +369,35 @@ export default function App() {
             </h2>
 
             {activeTab === 'articles' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+              {/* Font size control */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid oklch(0.89 0.018 68)',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  onClick={() => adjustFontSize(-1)}
+                  className="text-ink-faint hover:text-ink transition-colors duration-150"
+                  style={{ padding: '7px 11px', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                >A−</button>
+                <div style={{ width: '1px', alignSelf: 'stretch', background: 'oklch(0.89 0.018 68)', flexShrink: 0 }} />
+                <button
+                  onClick={() => adjustFontSize(1)}
+                  className="text-ink-faint hover:text-ink transition-colors duration-150"
+                  style={{ padding: '7px 11px', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-serif)', background: 'transparent', cursor: 'pointer', lineHeight: 1 }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'oklch(0.93 0.008 68)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                >A+</button>
+              </div>
+
               <div ref={filterRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowFilter(f => !f)}
@@ -363,11 +418,6 @@ export default function App() {
                   }}
                 >
                   <SlidersHorizontal size={14} />
-                  {filterSource && (
-                    <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                      {SOURCE_META[filterSource]?.label ?? filterSource}
-                    </span>
-                  )}
                 </button>
 
                 {showFilter && (
@@ -417,6 +467,8 @@ export default function App() {
                     })}
                   </div>
                 )}
+              </div>
+
               </div>
             )}
           </header>
@@ -524,21 +576,20 @@ export default function App() {
                                 fontWeight: 700,
                                 letterSpacing: '-0.02em',
                                 lineHeight: 1.25,
-                                marginBottom: a.summary ? '8px' : 0,
+                                marginBottom: a.summary ? '6px' : 0,
                               }}
                             >
                               {a.title}
                             </h3>
                             {a.summary && (
                               <p
-                                className="font-serif text-ink-secondary"
+                                className="font-serif text-ink-faint"
                                 style={{
-                                  fontSize: '14px',
-                                  lineHeight: 1.6,
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
+                                  fontSize: '13px',
+                                  lineHeight: 1.5,
                                   overflow: 'hidden',
+                                  whiteSpace: 'nowrap',
+                                  textOverflow: 'ellipsis',
                                 }}
                               >
                                 {a.summary}
@@ -571,7 +622,7 @@ export default function App() {
                                   <p
                                     key={pi}
                                     className="font-serif text-ink-secondary"
-                                    style={{ fontSize: '15px', lineHeight: 1.75, marginBottom: '14px' }}
+                                    style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, marginBottom: '16px' }}
                                   >
                                     {para}
                                   </p>

@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import html as html_lib
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -11,8 +12,8 @@ SOURCES: dict[str, str] = {
     "as":             "https://as.com/rss/tags/futbol.xml",
     "sport":          "https://www.sport.es/rss/portada.rss",
     "mundodeportivo": "https://www.mundodeportivo.com/feed/rss/",
-    "lavanguardia":   "https://www.lavanguardia.com/rss/deporte.xml",
-    "elpais":         "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/deportes/portada",
+    "lavanguardia":   "https://www.lavanguardia.com/rss/deportes/futbol.xml",
+    "elpais":         "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/deportes/futbol/portada",
 }
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -57,7 +58,10 @@ def _fetch_source_sync(name: str, url: str) -> list[dict]:
         if not title:
             continue
         summary_raw = entry.get("summary") or entry.get("description") or ""
-        summary = _strip_html(summary_raw) or None
+        summary_clean = html_lib.unescape(_strip_html(summary_raw)).replace('\xa0', ' ').strip()
+        # drop trailing "Leer" / "Leer más" injected by some feeds
+        summary_clean = re.sub(r"\s*Leer(\s+m[aá]s)?\s*\.?$", "", summary_clean, flags=re.IGNORECASE).strip()
+        summary = summary_clean or None
         articles.append({
             "id":           hashlib.sha1(link.encode()).hexdigest()[:16],
             "source":       name,
