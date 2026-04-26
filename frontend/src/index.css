@@ -8,7 +8,7 @@
   --color-accent-muted: oklch(0.72 0.080 44);
 
   /* Warm neutrals */
-  --color-cream:        oklch(0.92 0.014 72);
+  --color-cream:        oklch(0.885 0.016 72);
   --color-cream-mid:    oklch(0.89 0.018 68);
   --color-sidebar:      oklch(0.965 0.008 68);
   --color-surface:      oklch(0.992 0.004 72);

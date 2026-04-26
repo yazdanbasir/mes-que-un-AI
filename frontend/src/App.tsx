@@ -29,7 +29,7 @@ const Sidebar = ({
     <aside
       className="flex-shrink-0 bg-sidebar flex flex-col overflow-hidden"
       style={{
-        width: collapsed ? '68px' : '340px',
+        width: collapsed ? '76px' : '375px',
         borderRight: '1px solid oklch(0.89 0.018 68)',
         transition: `width ${WIDTH_DURATION} ${EASE}`,
       }}
@@ -38,7 +38,7 @@ const Sidebar = ({
       <div
         className="animate-fade-in flex-shrink-0"
         style={{
-          padding: collapsed ? '48px 0 44px' : '48px 40px 44px',
+          padding: collapsed ? '54px 0 48px' : '54px 44px 48px',
           transition: `padding ${WIDTH_DURATION} ${EASE}`,
           animationDelay: '0ms',
         }}
@@ -47,16 +47,16 @@ const Sidebar = ({
           <div
             className="bg-accent flex-shrink-0"
             style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '5px',
+              width: '27px',
+              height: '27px',
+              borderRadius: '6px',
               transform: 'rotate(12deg)',
             }}
           />
           <h1
             className="font-sans text-ink"
             style={{
-              fontSize: '30px',
+              fontSize: '33px',
               fontWeight: 800,
               letterSpacing: '-0.03em',
               lineHeight: 1,
@@ -77,17 +77,17 @@ const Sidebar = ({
       <nav
         className="flex-1"
         style={{
-          padding: collapsed ? '0 4px 20px' : '0 20px 20px',
+          padding: collapsed ? '0 6px 22px' : '0 22px 22px',
           transition: `padding ${WIDTH_DURATION} ${EASE}`,
         }}
       >
         <p
           className="text-ink-faint uppercase"
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 700,
             letterSpacing: '0.18em',
-            padding: collapsed ? '0 0 16px' : '0 20px 16px',
+            padding: collapsed ? '0 0 18px' : '0 22px 18px',
             opacity: collapsed ? 0 : 1,
             maxWidth: collapsed ? 0 : '260px',
             overflow: 'hidden',
@@ -114,8 +114,8 @@ const Sidebar = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'flex-start',
-                    padding: collapsed ? '13px 21px' : '13px 20px',
-                    background: isActive ? 'oklch(0.93 0.030 44)' : 'transparent',
+                    padding: collapsed ? '15px 23px' : '15px 22px',
+                    background: isActive ? 'oklch(0.91 0.045 44)' : 'transparent',
                     transition: `background 0.2s ease`,
                   }}
                   onMouseEnter={(e) => {
@@ -129,7 +129,7 @@ const Sidebar = ({
                   }}
                 >
                   <Icon
-                    size={18}
+                    size={20}
                     style={{
                       flexShrink: 0,
                       color: 'oklch(0.16 0.010 58)',
@@ -148,7 +148,7 @@ const Sidebar = ({
                     <span
                       className="block leading-tight"
                       style={{
-                        fontSize: '15px',
+                        fontSize: '16px',
                         fontWeight: isActive ? 700 : 500,
                         color: 'oklch(0.16 0.010 58)',
                         letterSpacing: '-0.01em',
@@ -159,7 +159,7 @@ const Sidebar = ({
                     <span
                       className="block leading-tight"
                       style={{
-                        fontSize: '12px',
+                        fontSize: '13px',
                         fontWeight: 500,
                         color: isActive ? 'oklch(0.42 0.020 55)' : 'oklch(0.65 0.014 60)',
                         letterSpacing: '0.01em',
@@ -181,7 +181,7 @@ const Sidebar = ({
         className="animate-fade-in flex-shrink-0 flex items-center"
         style={{
           borderTop: '1px solid oklch(0.89 0.018 68)',
-          padding: collapsed ? '32px 0' : '32px 40px',
+          padding: collapsed ? '36px 0' : '36px 44px',
           justifyContent: collapsed ? 'center' : 'space-between',
           transition: `padding ${WIDTH_DURATION} ${EASE}`,
           animationDelay: '400ms',
@@ -190,7 +190,7 @@ const Sidebar = ({
         <p
           className="text-ink-faint uppercase leading-snug"
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 600,
             letterSpacing: '0.14em',
             opacity: collapsed ? 0 : 1,
@@ -236,7 +236,7 @@ export default function App() {
           background: 'oklch(0.992 0.004 72)',
           borderRadius: '28px',
           boxShadow:
-            '0 48px 96px -24px oklch(0.16 0.010 58 / 0.13), 0 4px 12px oklch(0.16 0.010 58 / 0.06)',
+            '0 48px 96px -24px oklch(0.16 0.010 58 / 0.17), 0 4px 12px oklch(0.16 0.010 58 / 0.08)',
           border: '1px solid oklch(0.89 0.018 68 / 0.7)',
         }}
       >
