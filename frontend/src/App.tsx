@@ -246,7 +246,22 @@ export default function App() {
           collapsed={collapsed}
           setCollapsed={setCollapsed}
         />
-        <main className="flex-1 bg-surface" />
+        <main className="flex-1 bg-surface flex flex-col">
+          <header
+            className="flex-shrink-0"
+            style={{
+              padding: '54px 48px 48px',
+            }}
+          >
+            <h2
+              className="font-sans text-ink"
+              style={{ fontSize: '33px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1 }}
+            >
+              {navItems.find(n => n.id === activeTab)?.label}
+            </h2>
+          </header>
+          <div className="flex-1" />
+        </main>
       </div>
     </div>
   );
