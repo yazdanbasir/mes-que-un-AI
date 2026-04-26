@@ -1,16 +1,60 @@
 @import "tailwindcss";
 
 @theme {
-  --color-anthropic-tan: #D4A27F;
-  --color-anthropic-black: #191919;
-  --color-anthropic-white: #FFFFFF;
-  --color-anthropic-warm-gray: #E8E0D8;
-  --color-natural-sidebar: #F7F3F0;
+  /* Accent — richer terracotta, confident clay */
+  --color-accent:       oklch(0.58 0.135 42);
+  --color-accent-hover: oklch(0.53 0.140 42);
+  --color-accent-light: oklch(0.93 0.030 44);
+  --color-accent-muted: oklch(0.72 0.080 44);
+
+  /* Warm neutrals */
+  --color-cream:        oklch(0.92 0.014 72);
+  --color-cream-mid:    oklch(0.89 0.018 68);
+  --color-sidebar:      oklch(0.965 0.008 68);
+  --color-surface:      oklch(0.992 0.004 72);
+
+  /* Text */
+  --color-ink:          oklch(0.16 0.010 58);
+  --color-ink-secondary:oklch(0.42 0.020 55);
+  --color-ink-faint:    oklch(0.65 0.014 60);
+
+  /* Legacy aliases */
+  --color-anthropic-tan:      oklch(0.58 0.135 42);
+  --color-anthropic-black:    oklch(0.16 0.010 58);
+  --color-anthropic-white:    oklch(0.992 0.004 72);
+  --color-anthropic-warm-gray:oklch(0.92 0.014 72);
+  --color-natural-sidebar:    oklch(0.965 0.008 68);
 
   --font-sans: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
 }
 
 body {
-  @apply bg-anthropic-warm-gray text-anthropic-black font-sans antialiased;
+  @apply bg-cream text-ink font-sans antialiased;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
 }
