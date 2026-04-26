@@ -1,5 +1,5 @@
-import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const SpanishFlag = () => (
   <svg width="16" height="11" viewBox="0 0 3 2" style={{ borderRadius: '3px', display: 'block', flexShrink: 0, boxShadow: '0 0 0 1px oklch(0.16 0.010 58 / 0.12)' }}>
@@ -13,6 +13,32 @@ const navItems = [
   { id: 'tweets',   label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
   { id: 'pau',      label: 'Pau',       sublabel: 'Tutor IA', icon: Bot },
 ];
+
+interface Article {
+  id: string;
+  source: string;
+  title: string;
+  summary: string | null;
+  url: string;
+  published_at: string | null;
+  fetched_at: string;
+}
+
+const SOURCE_META: Record<string, { label: string; color: string; bg: string }> = {
+  marca:          { label: 'Marca',         color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
+  as:             { label: 'AS',            color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
+  sport:          { label: 'Sport',         color: 'oklch(0.45 0.100 42)', bg: 'oklch(0.91 0.045 44)' },
+  mundodeportivo: { label: 'Mundo Dep.',    color: 'oklch(0.45 0.100 42)', bg: 'oklch(0.91 0.045 44)' },
+  lavanguardia:   { label: 'La Vanguardia', color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
+  elpais:         { label: 'El País',       color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' },
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
+  return `hace ${Math.floor(diff / 86400)}d`;
+}
 
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const WIDTH_DURATION = '0.3s';
@@ -249,6 +275,18 @@ const Sidebar = ({
 export default function App() {
   const [activeTab, setActiveTab] = useState('articles');
   const [collapsed, setCollapsed] = useState(false);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'articles') return;
+    setLoading(true);
+    fetch('/api/articles')
+      .then(r => r.json())
+      .then((data: Article[]) => setArticles(data))
+      .catch(() => setArticles([]))
+      .finally(() => setLoading(false));
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
@@ -284,7 +322,89 @@ export default function App() {
               {navItems.find(n => n.id === activeTab)?.label}
             </h2>
           </header>
-          <div className="flex-1" />
+          <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
+            {activeTab === 'articles' && (
+              loading ? (
+                <p className="text-ink-faint" style={{ fontSize: '15px' }}>Cargando artículos…</p>
+              ) : articles.length === 0 ? (
+                <p className="text-ink-faint" style={{ fontSize: '15px' }}>
+                  No hay artículos. ¿Está corriendo el backend?
+                </p>
+              ) : (
+                <div>
+                  {articles.map((a, i) => {
+                    const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
+                    const dateStr = a.published_at ?? a.fetched_at;
+                    return (
+                      <article
+                        key={a.id}
+                        style={{
+                          padding: '28px 0',
+                          borderTop: i > 0 ? '1px solid oklch(0.89 0.018 68)' : 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                color: meta.color,
+                                background: meta.bg,
+                              }}
+                            >
+                              {meta.label}
+                            </span>
+                            <span className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 500 }}>
+                              {timeAgo(dateStr)}
+                            </span>
+                          </div>
+                          <a
+                            href={a.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-ink-faint hover:text-ink transition-colors duration-150"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                        </div>
+                        <h3
+                          className="font-sans text-ink"
+                          style={{
+                            fontSize: '20px',
+                            fontWeight: 700,
+                            letterSpacing: '-0.02em',
+                            lineHeight: 1.25,
+                            marginBottom: a.summary ? '10px' : 0,
+                          }}
+                        >
+                          {a.title}
+                        </h3>
+                        {a.summary && (
+                          <p
+                            className="font-serif text-ink-secondary"
+                            style={{
+                              fontSize: '15px',
+                              lineHeight: 1.65,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {a.summary}
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </div>
         </main>
       </div>
     </div>
