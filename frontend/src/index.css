@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
+@theme {
+  --color-anthropic-tan: #D4A27F;
+  --color-anthropic-black: #191919;
+  --color-anthropic-white: #FFFFFF;
+  --color-anthropic-warm-gray: #E8E0D8;
+  --color-natural-sidebar: #F7F3F0;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", ui-serif, Georgia, serif;
+}
+
+body {
+  @apply bg-anthropic-warm-gray text-anthropic-black font-sans antialiased;
+}
