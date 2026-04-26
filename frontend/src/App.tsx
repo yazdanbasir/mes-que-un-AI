@@ -1,6 +1,13 @@
 import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useState } from 'react';
 
+const SpanishFlag = () => (
+  <svg width="16" height="11" viewBox="0 0 3 2" style={{ borderRadius: '3px', display: 'block', flexShrink: 0, boxShadow: '0 0 0 1px oklch(0.16 0.010 58 / 0.12)' }}>
+    <rect width="3" height="2" fill="#c60b1e" />
+    <rect y="0.5" width="3" height="1" fill="#ffc400" />
+  </svg>
+);
+
 const navItems = [
   { id: 'articles', label: 'Artículos', sublabel: 'Articles', icon: BookOpen },
   { id: 'tweets',   label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
@@ -181,20 +188,36 @@ const Sidebar = ({
         className="animate-fade-in flex-shrink-0 flex items-center"
         style={{
           borderTop: '1px solid oklch(0.89 0.018 68)',
-          padding: collapsed ? '36px 0' : '36px 44px',
+          padding: collapsed ? '36px 0' : '36px 20px',
           justifyContent: collapsed ? 'center' : 'space-between',
           transition: `padding ${WIDTH_DURATION} ${EASE}`,
           animationDelay: '400ms',
         }}
       >
-        <p
-          className="text-ink-faint uppercase leading-snug"
+        {/* Flag */}
+        <span
           style={{
-            fontSize: '12px',
+            flexShrink: 0,
+            opacity: collapsed ? 0 : 1,
+            maxWidth: collapsed ? 0 : '16px',
+            overflow: 'hidden',
+            display: 'flex',
+            transition: textTransition,
+          }}
+        >
+          <SpanishFlag />
+        </span>
+
+        {/* Label */}
+        <p
+          className="text-ink-faint uppercase"
+          style={{
+            fontSize: '10.5px',
             fontWeight: 600,
             letterSpacing: '0.14em',
+            textAlign: 'center',
+            flex: collapsed ? '0 0 0px' : 1,
             opacity: collapsed ? 0 : 1,
-            maxWidth: collapsed ? 0 : '220px',
             overflow: 'hidden',
             whiteSpace: 'nowrap',
             transition: textTransition,
@@ -202,13 +225,14 @@ const Sidebar = ({
         >
           A language learning app
         </p>
+
+        {/* Collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="text-ink-faint hover:text-ink transition-colors duration-150 flex-shrink-0"
           style={{
-            marginLeft: collapsed ? 0 : '12px',
             padding: '8px',
-            margin: collapsed ? '-8px' : '-8px -8px -8px 4px',
+            margin: '-8px',
           }}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
