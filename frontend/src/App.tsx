@@ -524,12 +524,12 @@ export default function App() {
                                 fontWeight: 700,
                                 letterSpacing: '-0.02em',
                                 lineHeight: 1.25,
-                                marginBottom: (!isExpanded && a.summary) ? '8px' : 0,
+                                marginBottom: a.summary ? '8px' : 0,
                               }}
                             >
                               {a.title}
                             </h3>
-                            {!isExpanded && a.summary && (
+                            {a.summary && (
                               <p
                                 className="font-serif text-ink-secondary"
                                 style={{
@@ -567,7 +567,7 @@ export default function App() {
                                 );
                               }
                               if (typeof state === 'string') {
-                                return state.split('\n\n').map((para, pi) => (
+                                return state.split('\n\n').filter(p => p.trim()).map((para, pi) => (
                                   <p
                                     key={pi}
                                     className="font-serif text-ink-secondary"
