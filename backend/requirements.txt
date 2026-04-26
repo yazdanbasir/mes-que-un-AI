@@ -5,3 +5,5 @@ apscheduler
 httpx
 beautifulsoup4
 lxml
+groq
+python-dotenv

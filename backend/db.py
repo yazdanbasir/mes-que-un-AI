@@ -30,6 +30,27 @@ def init() -> None:
         if "image_url" not in cols:
             conn.execute("ALTER TABLE articles ADD COLUMN image_url TEXT")
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS narratives (
+                article_id TEXT PRIMARY KEY,
+                content    TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS saved_phrases (
+                id          TEXT PRIMARY KEY,
+                phrase      TEXT NOT NULL,
+                sentence    TEXT NOT NULL,
+                translation TEXT,
+                definition  TEXT,
+                article_id  TEXT,
+                source      TEXT,
+                saved_at    TEXT NOT NULL
+            )
+        """)
+
 
 def upsert(articles: list[dict]) -> None:
     if not articles:
@@ -58,6 +79,46 @@ def get_by_id(article_id: str) -> Optional[dict]:
             "SELECT * FROM articles WHERE id = ?", (article_id,)
         ).fetchone()
     return dict(row) if row else None
+
+
+def get_narrative(article_id: str) -> Optional[str]:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT content FROM narratives WHERE article_id = ?", (article_id,)
+        ).fetchone()
+    return row[0] if row else None
+
+
+def save_narrative(article_id: str, content: str) -> None:
+    from datetime import datetime, timezone
+    with _connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO narratives (article_id, content, created_at) VALUES (?, ?, ?)",
+            (article_id, content, datetime.now(timezone.utc).isoformat()),
+        )
+
+
+def save_phrase(phrase: dict) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO saved_phrases
+               (id, phrase, sentence, translation, definition, article_id, source, saved_at)
+               VALUES (:id, :phrase, :sentence, :translation, :definition, :article_id, :source, :saved_at)""",
+            phrase,
+        )
+
+
+def get_phrases() -> list[dict]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM saved_phrases ORDER BY saved_at DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_phrase(phrase_id: str) -> None:
+    with _connect() as conn:
+        conn.execute("DELETE FROM saved_phrases WHERE id = ?", (phrase_id,))
 
 
 def get_all(source: Optional[str] = None) -> list[dict]:
