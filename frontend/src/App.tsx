@@ -231,8 +231,8 @@ const Sidebar = ({
           onClick={() => setCollapsed(!collapsed)}
           className="text-ink-faint hover:text-ink transition-colors duration-150 flex-shrink-0"
           style={{
-            padding: '8px',
-            margin: '-8px',
+            padding: '28px',
+            margin: '-28px',
           }}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
