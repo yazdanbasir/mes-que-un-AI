@@ -21,9 +21,14 @@ def init() -> None:
                 summary      TEXT,
                 url          TEXT NOT NULL,
                 published_at TEXT,
-                fetched_at   TEXT NOT NULL
+                fetched_at   TEXT NOT NULL,
+                image_url    TEXT
             )
         """)
+        # migrate existing DBs that predate the image_url column
+        cols = [row[1] for row in conn.execute("PRAGMA table_info(articles)").fetchall()]
+        if "image_url" not in cols:
+            conn.execute("ALTER TABLE articles ADD COLUMN image_url TEXT")
 
 
 def upsert(articles: list[dict]) -> None:
@@ -32,13 +37,27 @@ def upsert(articles: list[dict]) -> None:
     with _connect() as conn:
         conn.executemany(
             """
-            INSERT OR IGNORE INTO articles
-                (id, source, title, summary, url, published_at, fetched_at)
+            INSERT INTO articles
+                (id, source, title, summary, url, published_at, fetched_at, image_url)
             VALUES
-                (:id, :source, :title, :summary, :url, :published_at, :fetched_at)
+                (:id, :source, :title, :summary, :url, :published_at, :fetched_at, :image_url)
+            ON CONFLICT(id) DO UPDATE SET
+                title        = excluded.title,
+                summary      = excluded.summary,
+                published_at = excluded.published_at,
+                fetched_at   = excluded.fetched_at,
+                image_url    = excluded.image_url
             """,
             articles,
         )
+
+
+def get_by_id(article_id: str) -> Optional[dict]:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM articles WHERE id = ?", (article_id,)
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def get_all(source: Optional[str] = None) -> list[dict]:

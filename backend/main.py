@@ -2,10 +2,11 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import db
+from fetchers.article import fetch_article_text
 from fetchers.rss import fetch_all
 from models import Article
 
@@ -51,3 +52,15 @@ def get_articles(source: Optional[str] = None):
 async def manual_refresh():
     await _refresh()
     return {"status": "ok"}
+
+
+@app.get("/api/articles/{article_id}/content")
+async def get_article_content(article_id: str):
+    article = db.get_by_id(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    try:
+        text = await fetch_article_text(article["url"])
+        return {"content": text}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))

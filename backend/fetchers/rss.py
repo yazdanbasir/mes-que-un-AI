@@ -22,6 +22,22 @@ def _strip_html(text: str) -> str:
     return _TAG_RE.sub("", text).strip()
 
 
+def _get_image(entry) -> Optional[str]:
+    for thumb in entry.get("media_thumbnail", []):
+        url = thumb.get("url")
+        if url:
+            return url
+    for m in entry.get("media_content", []):
+        if m.get("medium") == "image" or m.get("type", "").startswith("image/"):
+            url = m.get("url")
+            if url:
+                return url
+    for enc in entry.get("enclosures", []):
+        if enc.get("type", "").startswith("image/"):
+            return enc.get("href") or enc.get("url")
+    return None
+
+
 def _parse_date(entry) -> Optional[str]:
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
@@ -43,13 +59,14 @@ def _fetch_source_sync(name: str, url: str) -> list[dict]:
         summary_raw = entry.get("summary") or entry.get("description") or ""
         summary = _strip_html(summary_raw) or None
         articles.append({
-            "id":          hashlib.sha1(link.encode()).hexdigest()[:16],
-            "source":      name,
-            "title":       title,
-            "summary":     summary,
-            "url":         link,
+            "id":           hashlib.sha1(link.encode()).hexdigest()[:16],
+            "source":       name,
+            "title":        title,
+            "summary":      summary,
+            "url":          link,
             "published_at": _parse_date(entry),
-            "fetched_at":  now,
+            "fetched_at":   now,
+            "image_url":    _get_image(entry),
         })
     return articles
 

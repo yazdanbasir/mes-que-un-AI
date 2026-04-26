@@ -3,3 +3,5 @@ uvicorn[standard]
 feedparser
 apscheduler
 httpx
+beautifulsoup4
+lxml

@@ -10,3 +10,4 @@ class Article(BaseModel):
     url: str
     published_at: Optional[str]
     fetched_at: str
+    image_url: Optional[str]
