@@ -1,84 +1,103 @@
-import { BookOpen, MessageSquare, Bot } from 'lucide-react';
+import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
-  {
-    id: 'articles',
-    label: 'Artículos',
-    sublabel: 'Articles',
-    icon: BookOpen,
-    quote: {
-      es: 'El periodismo deportivo español no tiene igual. Leer es aprender.',
-      en: 'Select an article from the feed to begin reading.',
-    },
-  },
-  {
-    id: 'tweets',
-    label: 'Tweets',
-    sublabel: 'Social',
-    icon: MessageSquare,
-    quote: {
-      es: 'Twitter fue donde aprendí más español sin darme cuenta.',
-      en: 'Your curated Spanish football timeline.',
-    },
-  },
-  {
-    id: 'pau',
-    label: 'Pau',
-    sublabel: 'Tutor IA',
-    icon: Bot,
-    quote: {
-      es: 'La mejor manera de aprender un idioma es hablarlo.',
-      en: 'Start a conversation. Ask anything in Spanish.',
-    },
-  },
+  { id: 'articles', label: 'Artículos', sublabel: 'Articles', icon: BookOpen },
+  { id: 'tweets',   label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
+  { id: 'pau',      label: 'Pau',       sublabel: 'Tutor IA', icon: Bot },
 ];
+
+const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
+const WIDTH_DURATION = '0.3s';
 
 const Sidebar = ({
   activeTab,
   setActiveTab,
+  collapsed,
+  setCollapsed,
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
 }) => {
+  const textTransition = collapsed
+    ? `opacity 0.08s ease 0s, max-width ${WIDTH_DURATION} ${EASE}`
+    : `opacity 0.15s ease 0.18s, max-width ${WIDTH_DURATION} ${EASE}`;
+
   return (
     <aside
-      className="w-[272px] flex-shrink-0 bg-sidebar flex flex-col"
-      style={{ borderRight: '1px solid oklch(0.89 0.018 68)' }}
+      className="flex-shrink-0 bg-sidebar flex flex-col overflow-hidden"
+      style={{
+        width: collapsed ? '68px' : '340px',
+        borderRight: '1px solid oklch(0.89 0.018 68)',
+        transition: `width ${WIDTH_DURATION} ${EASE}`,
+      }}
     >
       {/* Wordmark */}
       <div
-        className="animate-fade-in px-8 pt-10 pb-9"
-        style={{ animationDelay: '0ms' }}
+        className="animate-fade-in flex-shrink-0"
+        style={{
+          padding: collapsed ? '48px 0 44px' : '48px 40px 44px',
+          transition: `padding ${WIDTH_DURATION} ${EASE}`,
+          animationDelay: '0ms',
+        }}
       >
-        <div
-          className="w-5 h-5 rounded-[4px] bg-accent mb-5"
-          style={{ transform: 'rotate(12deg)' }}
-        />
-        <h1
-          className="font-sans leading-[1.05] tracking-[-0.04em] text-ink"
-          style={{ fontSize: '26px', fontWeight: 800 }}
-        >
-          Més que
-          <br />
-          <span style={{ color: 'oklch(0.58 0.135 42)' }}>un AI.</span>
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            className="bg-accent flex-shrink-0"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '5px',
+              transform: 'rotate(12deg)',
+            }}
+          />
+          <h1
+            className="font-sans text-ink"
+            style={{
+              fontSize: '30px',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 0 : '260px',
+              marginLeft: collapsed ? 0 : '16px',
+              transition: textTransition,
+            }}
+          >
+            Mes Que Un AI
+          </h1>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 pb-4">
+      <nav
+        className="flex-1"
+        style={{
+          padding: collapsed ? '0 4px 20px' : '0 20px 20px',
+          transition: `padding ${WIDTH_DURATION} ${EASE}`,
+        }}
+      >
         <p
-          className="text-ink-faint px-4 mb-3 uppercase"
+          className="text-ink-faint uppercase"
           style={{
-            fontSize: '9px',
+            fontSize: '11px',
             fontWeight: 700,
             letterSpacing: '0.18em',
-            animationDelay: '80ms',
+            padding: collapsed ? '0 0 16px' : '0 20px 16px',
+            opacity: collapsed ? 0 : 1,
+            maxWidth: collapsed ? 0 : '260px',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            transition: `${textTransition}, padding ${WIDTH_DURATION} ${EASE}`,
           }}
         >
           Modos
         </p>
-        <ul className="space-y-0.5">
+        <ul style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navItems.map((item, i) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -90,15 +109,14 @@ const Sidebar = ({
               >
                 <button
                   onClick={() => setActiveTab(item.id)}
-                  className="w-full text-left rounded-xl transition-all duration-200"
+                  className="w-full text-left rounded-xl"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 16px',
-                    background: isActive
-                      ? 'oklch(0.93 0.030 44)'
-                      : 'transparent',
+                    justifyContent: 'flex-start',
+                    padding: collapsed ? '13px 21px' : '13px 20px',
+                    background: isActive ? 'oklch(0.93 0.030 44)' : 'transparent',
+                    transition: `background 0.2s ease`,
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive)
@@ -107,45 +125,45 @@ const Sidebar = ({
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive)
-                      (e.currentTarget as HTMLButtonElement).style.background =
-                        'transparent';
+                      (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                   }}
                 >
                   <Icon
-                    size={15}
+                    size={18}
                     style={{
                       flexShrink: 0,
-                      color: isActive
-                        ? 'oklch(0.58 0.135 42)'
-                        : 'oklch(0.65 0.014 60)',
-                      transition: 'color 0.15s',
+                      color: 'oklch(0.16 0.010 58)',
                     }}
                   />
-                  <div>
+                  <div
+                    style={{
+                      overflow: 'hidden',
+                      opacity: collapsed ? 0 : 1,
+                      maxWidth: collapsed ? 0 : '220px',
+                      marginLeft: collapsed ? 0 : '14px',
+                      whiteSpace: 'nowrap',
+                      transition: textTransition,
+                    }}
+                  >
                     <span
                       className="block leading-tight"
                       style={{
-                        fontSize: '13px',
+                        fontSize: '15px',
                         fontWeight: isActive ? 700 : 500,
-                        color: isActive
-                          ? 'oklch(0.58 0.135 42)'
-                          : 'oklch(0.16 0.010 58)',
-                        transition: 'all 0.15s',
+                        color: 'oklch(0.16 0.010 58)',
                         letterSpacing: '-0.01em',
                       }}
                     >
                       {item.label}
                     </span>
                     <span
-                      className="block leading-tight mt-0.5"
+                      className="block leading-tight"
                       style={{
-                        fontSize: '10px',
+                        fontSize: '12px',
                         fontWeight: 500,
-                        color: isActive
-                          ? 'oklch(0.72 0.080 44)'
-                          : 'oklch(0.65 0.014 60)',
-                        transition: 'color 0.15s',
+                        color: isActive ? 'oklch(0.42 0.020 55)' : 'oklch(0.65 0.014 60)',
                         letterSpacing: '0.01em',
+                        marginTop: '4px',
                       }}
                     >
                       {item.sublabel}
@@ -160,84 +178,53 @@ const Sidebar = ({
 
       {/* Footer */}
       <div
-        className="animate-fade-in px-8 py-6"
+        className="animate-fade-in flex-shrink-0 flex items-center"
         style={{
           borderTop: '1px solid oklch(0.89 0.018 68)',
+          padding: collapsed ? '32px 0' : '32px 40px',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          transition: `padding ${WIDTH_DURATION} ${EASE}`,
           animationDelay: '400ms',
         }}
       >
         <p
           className="text-ink-faint uppercase leading-snug"
           style={{
-            fontSize: '9px',
+            fontSize: '11px',
             fontWeight: 600,
             letterSpacing: '0.14em',
+            opacity: collapsed ? 0 : 1,
+            maxWidth: collapsed ? 0 : '220px',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            transition: textTransition,
           }}
         >
-          Comprensión
-          <br />
-          auditiva &amp; lectora
+          A language learning app
         </p>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="text-ink-faint hover:text-ink transition-colors duration-150 flex-shrink-0"
+          style={{
+            marginLeft: collapsed ? 0 : '12px',
+            padding: '8px',
+            margin: collapsed ? '-8px' : '-8px -8px -8px 4px',
+          }}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed
+            ? <PanelLeftOpen size={16} />
+            : <PanelLeftClose size={16} />
+          }
+        </button>
       </div>
     </aside>
   );
 };
 
-const WelcomePane = ({ activeTab }: { activeTab: string }) => {
-  const item = navItems.find((n) => n.id === activeTab)!;
-
-  return (
-    <div
-      key={activeTab}
-      className="flex-1 flex flex-col items-center justify-center px-16 py-20 animate-fade-in"
-      style={{ animationDelay: '0ms' }}
-    >
-      <div style={{ maxWidth: '480px', textAlign: 'center' }}>
-        {/* Decorative bar */}
-        <div
-          className="mx-auto mb-8"
-          style={{
-            width: '32px',
-            height: '3px',
-            background: 'oklch(0.58 0.135 42)',
-            borderRadius: '2px',
-          }}
-        />
-
-        {/* Spanish quote */}
-        <p
-          className="font-serif text-ink"
-          style={{
-            fontSize: '22px',
-            fontWeight: 400,
-            fontStyle: 'italic',
-            lineHeight: 1.45,
-            letterSpacing: '-0.01em',
-            marginBottom: '20px',
-          }}
-        >
-          &ldquo;{item.quote.es}&rdquo;
-        </p>
-
-        {/* English subtitle */}
-        <p
-          className="text-ink-secondary"
-          style={{
-            fontSize: '13px',
-            fontWeight: 400,
-            letterSpacing: '0.01em',
-            lineHeight: 1.6,
-          }}
-        >
-          {item.quote.en}
-        </p>
-      </div>
-    </div>
-  );
-};
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('articles');
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
@@ -253,10 +240,13 @@ export default function App() {
           border: '1px solid oklch(0.89 0.018 68 / 0.7)',
         }}
       >
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <main className="flex-1 bg-surface">
-          <WelcomePane activeTab={activeTab} />
-        </main>
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+        />
+        <main className="flex-1 bg-surface" />
       </div>
     </div>
   );
