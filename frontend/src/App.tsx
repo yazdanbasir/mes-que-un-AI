@@ -11,16 +11,16 @@ const Sidebar = () => {
   const [activeTab, setActiveTab] = useState('articles');
 
   return (
-    <aside className="w-72 bg-natural-sidebar border-r border-anthropic-warm-gray flex flex-col p-8">
+    <aside className="w-72 bg-natural-sidebar border-r border-anthropic-warm-gray flex flex-col px-6 py-8">
       <div className="mb-12 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-anthropic-tan" />
-        <h1 className="text-xl font-bold tracking-tight text-anthropic-black leading-tight font-serif">
+        <div className="w-9 h-9 rounded-full bg-anthropic-tan" />
+        <h1 className="text-xl font-bold tracking-tight text-anthropic-black leading-tight">
           Mes Que Un AI
         </h1>
       </div>
 
       <nav className="flex-1">
-        <p className="text-[10px] tracking-[0.2em] font-bold text-anthropic-black/30 mb-6 uppercase">
+        <p className="text-xs tracking-[0.2em] font-bold text-anthropic-black/30 mb-6 uppercase">
           Learning Paths
         </p>
         <ul className="space-y-2">
@@ -31,7 +31,7 @@ const Sidebar = () => {
               <li key={item.id}>
                 <button
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-300 w-full text-left ${
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-colors duration-300 w-full text-left ${
                     isActive
                       ? 'bg-anthropic-white shadow-sm border border-anthropic-tan/20'
                       : 'hover:bg-anthropic-tan/10'
@@ -52,7 +52,7 @@ const Sidebar = () => {
       </nav>
 
       <div className="mt-auto pt-8 border-t border-anthropic-warm-gray">
-        <p className="text-[10px] tracking-widest text-stone-400 font-bold uppercase">
+        <p className="text-xs tracking-widest text-stone-400 font-bold uppercase">
           A language learning app
         </p>
       </div>
