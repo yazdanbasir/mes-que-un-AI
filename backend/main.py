@@ -123,8 +123,9 @@ class SavePhraseRequest(BaseModel):
 
 @app.post("/api/deck")
 def save_phrase(req: SavePhraseRequest):
+    phrase_id = uuid.uuid4().hex
     db.save_phrase({
-        "id":          uuid.uuid4().hex,
+        "id":          phrase_id,
         "phrase":      req.phrase,
         "sentence":    req.sentence,
         "translation": req.translation,
@@ -136,7 +137,7 @@ def save_phrase(req: SavePhraseRequest):
         "srs_stage":   0,
         "next_review": datetime.now(timezone.utc).isoformat(),
     })
-    return {"status": "ok"}
+    return {"status": "ok", "id": phrase_id}
 
 
 @app.get("/api/deck")

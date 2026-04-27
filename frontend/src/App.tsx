@@ -251,6 +251,9 @@ export default function App() {
       .finally(() => setDeckLoading(false));
   }, []);
 
+  // Load deck once on mount so the tooltip can check for duplicates
+  useEffect(() => { fetchDeck(); }, [fetchDeck]);
+
   useEffect(() => {
     if (activeTab !== 'revision') return;
     fetchDeck();
@@ -342,11 +345,13 @@ export default function App() {
 
   const handleSave = async () => {
     if (!tooltip) return;
-    await fetch('/api/deck', {
+    const res = await fetch('/api/deck', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phrase: tooltip.phrase, sentence: tooltip.sentence, translation: tooltip.translation, definition: tooltip.definition, category: tooltip.category, article_id: tooltip.articleId, source: tooltip.source }),
-    });
+    }).then(r => r.json());
+    // optimistically add to local deck so duplicate check fires immediately
+    setDeck(d => [...d, { id: res.id, phrase: tooltip.phrase, sentence: tooltip.sentence, translation: tooltip.translation, definition: tooltip.definition, category: tooltip.category, article_id: tooltip.articleId, source: tooltip.source, saved_at: new Date().toISOString(), srs_stage: 0, next_review: new Date().toISOString() }]);
     setTooltip(t => t ? { ...t, saved: true } : null);
     setTimeout(() => setTooltip(null), 800);
   };
@@ -775,25 +780,29 @@ export default function App() {
             <>
               {tooltip.definition && <p className="font-serif" style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--color-tooltip-secondary)', marginBottom: '8px' }}>{tooltip.definition}</p>}
               {tooltip.translation && <p style={{ fontSize: '13px', color: 'var(--color-accent)', fontWeight: 600, marginBottom: '14px' }}>{tooltip.translation}</p>}
-              <button
-                onClick={handleSave}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  background: tooltip.saved ? 'var(--color-success)' : 'var(--color-accent)',
-                  color: 'var(--color-on-accent)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                {tooltip.saved ? <><Check size={12} />Guardado</> : 'Guardar'}
-              </button>
+              {(() => {
+                const savedPhrase = deck.find(p => p.phrase.toLowerCase() === tooltip.phrase.toLowerCase());
+                if (savedPhrase) {
+                  return (
+                    <button
+                      onClick={() => { handleDeletePhrase(savedPhrase.id); setTooltip(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: 'transparent', border: '1.5px solid oklch(0.55 0.010 58 / 0.3)', color: 'oklch(0.65 0.014 60)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.85 0.010 58)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.65 0.010 58 / 0.5)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.65 0.014 60)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.55 0.010 58 / 0.3)'; }}
+                    >
+                      <Check size={12} />Guardado · quitar
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    onClick={handleSave}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: tooltip.saved ? 'var(--color-success)' : 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'background 0.2s ease' }}
+                  >
+                    {tooltip.saved ? <><Check size={12} />Guardado</> : 'Guardar'}
+                  </button>
+                );
+              })()}
             </>
           )}
         </div>
