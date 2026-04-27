@@ -93,7 +93,7 @@ const WIDTH_DURATION = '0.3s';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
-const THEMES = ['default', 'tuscan', 'dark'] as const;
+const THEMES = ['default', 'tuscan', 'dim', 'dark'] as const;
 type Theme = typeof THEMES[number];
 
 function useTheme(): [Theme, () => void] {
