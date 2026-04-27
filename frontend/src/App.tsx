@@ -848,7 +848,7 @@ export default function App() {
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.85 0.010 58)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.65 0.010 58 / 0.5)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.65 0.014 60)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.55 0.010 58 / 0.3)'; }}
                     >
-                      <Check size={12} />Guardado · quitar
+                      <Check size={12} />Guardado
                     </button>
                   );
                 }

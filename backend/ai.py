@@ -78,20 +78,24 @@ async def generate_narrative(title: str, summary: str) -> str:
 
 # ── SRS production feedback ───────────────────────────────────────────────────
 
-_PRODUCTION_SYSTEM = """Eres un tutor de español. El estudiante ha escrito una frase usando una palabra o expresión que está aprendiendo.
-Evalúa si el uso es natural y correcto. Responde en una o dos frases máximo, en español.
-Sé directo: di si está bien o qué cambiarías, y por qué. Sin saludos ni preámbulos."""
+_PRODUCTION_SYSTEM = """Eres un tutor de español evaluando si un estudiante ha usado correctamente una palabra o expresión.
+
+Reglas estrictas:
+- Solo corrige errores que REALMENTE existen en la frase escrita. No inventes errores.
+- Si la frase es correcta, di que está bien y por qué funciona.
+- Si hay un error real, cita exactamente lo que escribió el estudiante y explica el problema en una frase.
+- Máximo 2 frases. Sin saludos ni preámbulos."""
 
 
 async def evaluate_production(phrase: str, student_sentence: str) -> str:
     client = get_client()
     resp = await client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": _PRODUCTION_SYSTEM},
-            {"role": "user", "content": f'Expresión: "{phrase}"\nFrase del estudiante: "{student_sentence}"'},
+            {"role": "user", "content": f'Expresión a usar: "{phrase}"\nFrase escrita por el estudiante: "{student_sentence}"'},
         ],
         max_tokens=120,
-        temperature=0.4,
+        temperature=0.2,
     )
     return (resp.choices[0].message.content or "").strip()
