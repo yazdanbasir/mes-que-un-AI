@@ -228,6 +228,7 @@ export default function App() {
   interface ComprehensionState {
     stage: ComprehensionStage;
     questions: string[];
+    starters: string[];
     answers: string[];
     feedback: string;
   }
@@ -236,13 +237,13 @@ export default function App() {
   const startComprehension = async (articleId: string) => {
     const content = articleContent[articleId];
     if (typeof content !== 'string') return;
-    setComprehension(c => ({ ...c, [articleId]: { stage: 'loading-q', questions: [], answers: [], feedback: '' } }));
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'loading-q', questions: [], starters: [], answers: [], feedback: '' } }));
     const res = await fetch(`/api/articles/${articleId}/comprehension/questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
-    }).then(r => r.json()).catch(() => ({ questions: [] }));
-    setComprehension(c => ({ ...c, [articleId]: { stage: 'answering', questions: res.questions ?? [], answers: (res.questions ?? []).map(() => ''), feedback: '' } }));
+    }).then(r => r.json()).catch(() => ({ questions: [], starters: [] }));
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'answering', questions: res.questions ?? [], starters: res.starters ?? [], answers: (res.questions ?? []).map(() => ''), feedback: '' } }));
   };
 
   const submitComprehension = async (articleId: string) => {
@@ -669,20 +670,33 @@ export default function App() {
                               if (cs.stage === 'answering' || cs.stage === 'loading-eval') return (
                                 <div style={{ marginTop: '32px', borderTop: '1px solid var(--color-cream-mid)', paddingTop: '28px' }}>
                                   <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '24px' }}>Preguntas de comprensión</p>
-                                  {cs.questions.map((q, qi) => (
-                                    <div key={qi} style={{ marginBottom: '20px' }}>
-                                      <p className="font-serif text-ink" style={{ fontSize: `${articleFontSize - 1}px`, lineHeight: 1.5, marginBottom: '8px' }}>{q}</p>
-                                      <textarea
-                                        value={cs.answers[qi] ?? ''}
-                                        onChange={e => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? e.target.value : ans) } }))}
-                                        placeholder="Tu respuesta…"
-                                        rows={2}
-                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.5, color: 'var(--color-ink)', resize: 'none', outline: 'none' }}
-                                        onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                                        onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
-                                      />
-                                    </div>
-                                  ))}
+                                  {cs.questions.map((q, qi) => {
+                                    const starter = cs.starters[qi];
+                                    return (
+                                      <div key={qi} style={{ marginBottom: '24px' }}>
+                                        <p className="font-serif text-ink" style={{ fontSize: `${articleFontSize - 1}px`, lineHeight: 1.5, marginBottom: '8px' }}>{q}</p>
+                                        <textarea
+                                          value={cs.answers[qi] ?? ''}
+                                          onChange={e => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? e.target.value : ans) } }))}
+                                          placeholder="Tu respuesta…"
+                                          rows={2}
+                                          style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.5, color: 'var(--color-ink)', resize: 'none', outline: 'none' }}
+                                          onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                                          onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
+                                        />
+                                        {starter && !cs.answers[qi]?.trim() && (
+                                          <button
+                                            onClick={() => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? starter + ' ' : ans) } }))}
+                                            style={{ marginTop: '6px', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '12px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer', fontFamily: 'var(--font-serif)' }}
+                                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
+                                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                                          >
+                                            ↳ {starter}…
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                   <button
                                     onClick={() => submitComprehension(a.id)}
                                     disabled={cs.stage === 'loading-eval' || cs.answers.every(ans => !ans.trim())}
@@ -710,7 +724,7 @@ export default function App() {
                                     );
                                   })}
                                   <button
-                                    onClick={() => setComprehension(c => ({ ...c, [a.id]: { stage: 'idle', questions: [], answers: [], feedback: '' } }))}
+                                    onClick={() => setComprehension(c => ({ ...c, [a.id]: { stage: 'idle', questions: [], starters: [], answers: [], feedback: '' } }))}
                                     style={{ marginTop: '8px', padding: '9px 18px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer' }}
                                   >
                                     Intentar de nuevo

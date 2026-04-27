@@ -20,9 +20,9 @@ def get_client() -> AsyncGroq:
 _LOOKUP_SYSTEM = """You are a Spanish language tutor. The user is reading a Spanish article and selected a word or phrase they don't understand.
 Always respond in this exact format (no extra text):
 
-DEFINICIÓN: [definition in Spanish, max 1 sentence] / [same definition in English, max 1 sentence]
-TRADUCCIÓN: [English translation, 1-5 words]
-CATEGORÍA: [one of: subjuntivo, verbo reflexivo, expresión idiomática, vocabulario fútbol, locución prepositiva, vocabulario periodístico, falso amigo, otro]"""
+DEFINICION: [definition in Spanish, max 1 sentence] / [same definition in English, max 1 sentence]
+TRADUCCION: [English translation, 1-5 words]
+CATEGORIA: [one of: subjuntivo, verbo reflexivo, expresion idiomatica, vocabulario futbol, locucion prepositiva, vocabulario periodistico, falso amigo, otro]"""
 
 _DEF_RE  = re.compile(r'DEFINICI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=TRADUCCI|\Z)', re.IGNORECASE | re.DOTALL)
 _TRA_RE  = re.compile(r'TRADUCCI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=CATEGOR|\Z)',  re.IGNORECASE | re.DOTALL)
@@ -51,24 +51,34 @@ async def lookup(phrase: str, sentence: str) -> dict:
     }
 
 
-# ── TPRS Narrative ────────────────────────────────────────────────────────────
-
 # ── Comprehension ─────────────────────────────────────────────────────────────
 
-_COMPREHENSION_SYSTEM = """Eres un profesor de español. Un estudiante acaba de leer un extracto de un artículo deportivo.
-Genera exactamente 3 preguntas de comprensión en español, basadas únicamente en el texto proporcionado.
-Pregunta sobre hechos concretos: quién, qué pasó, cuál fue el resultado, por qué ocurrió algo.
-Devuelve solo las 3 preguntas, una por línea, sin numeración ni texto adicional."""
+_COMPREHENSION_SYSTEM = (
+    "Eres un profesor de espanol. Un estudiante acaba de leer un extracto de un articulo deportivo.\n"
+    "Genera exactamente 3 preguntas de comprension en espanol, basadas unicamente en el texto proporcionado.\n"
+    "Pregunta sobre hechos concretos: quien, que paso, cual fue el resultado, por que ocurrio algo.\n\n"
+    "Para cada pregunta, incluye tambien un inicio de frase en espanol (3-6 palabras) que ayude al "
+    "estudiante a empezar su respuesta.\n\n"
+    "Formato exacto, sin texto adicional:\n"
+    "P: [pregunta]\n"
+    "I: [inicio de frase]\n"
+    "P: [pregunta]\n"
+    "I: [inicio de frase]\n"
+    "P: [pregunta]\n"
+    "I: [inicio de frase]"
+)
 
-_EVALUATION_SYSTEM = """You are a Spanish reading tutor. A student answered comprehension questions about a Spanish sports article.
-For each question and answer pair, give exactly one line of feedback in English.
-- If the answer is empty or blank: write "No answer given."
-- If the answer is correct: confirm what they got right in one sentence.
-- If the answer is wrong or incomplete: say what they missed in one sentence.
-Do not add any summary, conclusion, or extra lines at the end. One line per question, nothing more."""
+_EVALUATION_SYSTEM = (
+    "You are a Spanish reading tutor. A student answered comprehension questions about a Spanish sports article.\n"
+    "For each question and answer pair, give exactly one line of feedback in English.\n"
+    "- If the answer is empty or blank: write \"No answer given.\"\n"
+    "- If the answer is correct: confirm what they got right in one sentence.\n"
+    "- If the answer is wrong or incomplete: say what they missed in one sentence.\n"
+    "Do not add any summary, conclusion, or extra lines at the end. One line per question, nothing more."
+)
 
 
-async def generate_comprehension_questions(content: str) -> list[str]:
+async def generate_comprehension_questions(content: str) -> dict:
     client = get_client()
     excerpt = content[:3000]
     resp = await client.chat.completions.create(
@@ -77,17 +87,24 @@ async def generate_comprehension_questions(content: str) -> list[str]:
             {"role": "system", "content": _COMPREHENSION_SYSTEM},
             {"role": "user", "content": excerpt},
         ],
-        max_tokens=200,
+        max_tokens=300,
         temperature=0.4,
     )
     text = (resp.choices[0].message.content or "").strip()
-    return [q.strip() for q in text.splitlines() if q.strip()][:3]
+    questions, starters = [], []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("P:"):
+            questions.append(line[2:].strip())
+        elif line.startswith("I:"):
+            starters.append(line[2:].strip())
+    return {"questions": questions[:3], "starters": starters[:3]}
 
 
 async def evaluate_comprehension(content: str, questions: list[str], answers: list[str]) -> str:
     client = get_client()
     excerpt = content[:2000]
-    qa = "\n".join(f"Q: {q}\nA: {a}" for q, a in zip(questions, answers))
+    qa = "\n".join(f"Q: {q}\nA: {a if a.strip() else '[no answer]'}" for q, a in zip(questions, answers))
     resp = await client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
@@ -100,13 +117,17 @@ async def evaluate_comprehension(content: str, questions: list[str], answers: li
     return (resp.choices[0].message.content or "").strip()
 
 
-_NARRATIVE_SYSTEM = """Eres un profesor de español creando ejercicios de lectura para estudiantes de nivel A2-B1.
-Dado el titular y resumen de una noticia deportiva, escribe una micro-narrativa TPRS de 3-5 frases:
-- Tiempo presente simple
-- Vocabulario nivel A2-B1
-- Incluye quién, qué pasó, resultado
-- Solo en español, sin traducciones ni explicaciones
-- Sin título, solo el texto narrativo"""
+# ── TPRS Narrative ────────────────────────────────────────────────────────────
+
+_NARRATIVE_SYSTEM = (
+    "Eres un profesor de espanol creando ejercicios de lectura para estudiantes de nivel A2-B1.\n"
+    "Dado el titular y resumen de una noticia deportiva, escribe una micro-narrativa TPRS de 3-5 frases:\n"
+    "- Tiempo presente simple\n"
+    "- Vocabulario nivel A2-B1\n"
+    "- Incluye quien, que paso, resultado\n"
+    "- Solo en espanol, sin traducciones ni explicaciones\n"
+    "- Sin titulo, solo el texto narrativo"
+)
 
 
 async def generate_narrative(title: str, summary: str) -> str:
@@ -125,13 +146,14 @@ async def generate_narrative(title: str, summary: str) -> str:
 
 # ── SRS production feedback ───────────────────────────────────────────────────
 
-_PRODUCTION_SYSTEM = """Eres un tutor de español evaluando si un estudiante ha usado correctamente una palabra o expresión.
-
-Reglas estrictas:
-- Solo corrige errores que REALMENTE existen en la frase escrita. No inventes errores.
-- Si la frase es correcta, di que está bien y por qué funciona.
-- Si hay un error real, cita exactamente lo que escribió el estudiante y explica el problema en una frase.
-- Máximo 2 frases. Sin saludos ni preámbulos."""
+_PRODUCTION_SYSTEM = (
+    "Eres un tutor de espanol evaluando si un estudiante ha usado correctamente una palabra o expresion.\n\n"
+    "Reglas estrictas:\n"
+    "- Solo corrige errores que REALMENTE existen en la frase escrita. No inventes errores.\n"
+    "- Si la frase es correcta, di que esta bien y por que funciona.\n"
+    "- Si hay un error real, cita exactamente lo que escribio el estudiante y explica el problema en una frase.\n"
+    "- Maximo 2 frases. Sin saludos ni preambulos."
+)
 
 
 async def evaluate_production(phrase: str, student_sentence: str) -> str:
@@ -140,7 +162,7 @@ async def evaluate_production(phrase: str, student_sentence: str) -> str:
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": _PRODUCTION_SYSTEM},
-            {"role": "user", "content": f'Expresión a usar: "{phrase}"\nFrase escrita por el estudiante: "{student_sentence}"'},
+            {"role": "user", "content": f'Expresion a usar: "{phrase}"\nFrase escrita por el estudiante: "{student_sentence}"'},
         ],
         max_tokens=120,
         temperature=0.2,
