@@ -2,4 +2,3 @@ Features to add:
 
 mark as read on articlies
 how to get tweets for free
-toggle between themes
