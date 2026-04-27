@@ -91,6 +91,36 @@ async def get_narrative(article_id: str):
         raise HTTPException(status_code=502, detail=str(e))
 
 
+# ── Comprehension ─────────────────────────────────────────────────────────────
+
+class ComprehensionRequest(BaseModel):
+    content: str
+
+
+class ComprehensionEvalRequest(BaseModel):
+    content: str
+    questions: list[str]
+    answers: list[str]
+
+
+@app.post("/api/articles/{article_id}/comprehension/questions")
+async def get_comprehension_questions(article_id: str, req: ComprehensionRequest):
+    try:
+        questions = await ai.generate_comprehension_questions(req.content)
+        return {"questions": questions}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/api/articles/{article_id}/comprehension/evaluate")
+async def evaluate_comprehension(article_id: str, req: ComprehensionEvalRequest):
+    try:
+        feedback = await ai.evaluate_comprehension(req.content, req.questions, req.answers)
+        return {"feedback": feedback}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 # ── Lookup ────────────────────────────────────────────────────────────────────
 
 class LookupRequest(BaseModel):

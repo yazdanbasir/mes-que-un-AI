@@ -53,6 +53,51 @@ async def lookup(phrase: str, sentence: str) -> dict:
 
 # ── TPRS Narrative ────────────────────────────────────────────────────────────
 
+# ── Comprehension ─────────────────────────────────────────────────────────────
+
+_COMPREHENSION_SYSTEM = """Eres un profesor de español. Un estudiante acaba de leer un extracto de un artículo deportivo.
+Genera exactamente 3 preguntas de comprensión en español, basadas únicamente en el texto proporcionado.
+Pregunta sobre hechos concretos: quién, qué pasó, cuál fue el resultado, por qué ocurrió algo.
+Devuelve solo las 3 preguntas, una por línea, sin numeración ni texto adicional."""
+
+_EVALUATION_SYSTEM = """You are a Spanish reading tutor. A student answered comprehension questions about a Spanish sports article.
+For each question and answer pair, give one line of feedback in English: did they understand correctly, and what (if anything) they missed.
+Be brief and encouraging. If an answer is vague but shows understanding, say so.
+At the end, add one line starting with OVERALL: summarising their comprehension in a sentence."""
+
+
+async def generate_comprehension_questions(content: str) -> list[str]:
+    client = get_client()
+    excerpt = content[:3000]
+    resp = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": _COMPREHENSION_SYSTEM},
+            {"role": "user", "content": excerpt},
+        ],
+        max_tokens=200,
+        temperature=0.4,
+    )
+    text = (resp.choices[0].message.content or "").strip()
+    return [q.strip() for q in text.splitlines() if q.strip()][:3]
+
+
+async def evaluate_comprehension(content: str, questions: list[str], answers: list[str]) -> str:
+    client = get_client()
+    excerpt = content[:2000]
+    qa = "\n".join(f"Q: {q}\nA: {a}" for q, a in zip(questions, answers))
+    resp = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": _EVALUATION_SYSTEM},
+            {"role": "user", "content": f"Article excerpt:\n{excerpt}\n\nQ&A:\n{qa}"},
+        ],
+        max_tokens=250,
+        temperature=0.3,
+    )
+    return (resp.choices[0].message.content or "").strip()
+
+
 _NARRATIVE_SYSTEM = """Eres un profesor de español creando ejercicios de lectura para estudiantes de nivel A2-B1.
 Dado el titular y resumen de una noticia deportiva, escribe una micro-narrativa TPRS de 3-5 frases:
 - Tiempo presente simple

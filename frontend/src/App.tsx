@@ -223,6 +223,41 @@ export default function App() {
   const [deckLoading, setDeckLoading] = useState(false);
   const [dueCount, setDueCount] = useState(0);
 
+  // Comprehension checks
+  type ComprehensionStage = 'idle' | 'loading-q' | 'answering' | 'loading-eval' | 'done';
+  interface ComprehensionState {
+    stage: ComprehensionStage;
+    questions: string[];
+    answers: string[];
+    feedback: string;
+  }
+  const [comprehension, setComprehension] = useState<Record<string, ComprehensionState>>({});
+
+  const startComprehension = async (articleId: string) => {
+    const content = articleContent[articleId];
+    if (typeof content !== 'string') return;
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'loading-q', questions: [], answers: [], feedback: '' } }));
+    const res = await fetch(`/api/articles/${articleId}/comprehension/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    }).then(r => r.json()).catch(() => ({ questions: [] }));
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'answering', questions: res.questions ?? [], answers: (res.questions ?? []).map(() => ''), feedback: '' } }));
+  };
+
+  const submitComprehension = async (articleId: string) => {
+    const state = comprehension[articleId];
+    const content = articleContent[articleId];
+    if (!state || typeof content !== 'string') return;
+    setComprehension(c => ({ ...c, [articleId]: { ...state, stage: 'loading-eval' } }));
+    const res = await fetch(`/api/articles/${articleId}/comprehension/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, questions: state.questions, answers: state.answers }),
+    }).then(r => r.json()).catch(() => ({ feedback: 'No se pudo evaluar.' }));
+    setComprehension(c => ({ ...c, [articleId]: { ...state, stage: 'done', feedback: res.feedback ?? '' } }));
+  };
+
   // SRS review session
   type ReviewMode = 'recognition' | 'production';
   const [reviewQueue, setReviewQueue] = useState<SavedPhrase[]>([]);
@@ -598,6 +633,75 @@ export default function App() {
                             <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-ink transition-colors duration-150" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-accent)', marginTop: '6px', display: 'inline-flex' }}>
                               Leer en {meta.label}<ExternalLink size={12} />
                             </a>
+
+                            {/* Comprehension check */}
+                            {typeof articleContent[a.id] === 'string' && (() => {
+                              const cs = comprehension[a.id];
+
+                              if (!cs || cs.stage === 'idle') return (
+                                <button
+                                  onClick={() => startComprehension(a.id)}
+                                  style={{ marginTop: '32px', display: 'block', padding: '11px 22px', borderRadius: '12px', border: '1.5px solid var(--color-cream-mid)', background: 'transparent', fontSize: '14px', fontWeight: 600, color: 'var(--color-ink-secondary)', cursor: 'pointer' }}
+                                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'}
+                                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'}
+                                >
+                                  ¿Lo entendiste? →
+                                </button>
+                              );
+
+                              if (cs.stage === 'loading-q') return (
+                                <p className="text-ink-faint" style={{ marginTop: '32px', fontSize: '14px' }}>Generando preguntas…</p>
+                              );
+
+                              if (cs.stage === 'answering' || cs.stage === 'loading-eval') return (
+                                <div style={{ marginTop: '32px', borderTop: '1px solid var(--color-cream-mid)', paddingTop: '28px' }}>
+                                  <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '24px' }}>Preguntas de comprensión</p>
+                                  {cs.questions.map((q, qi) => (
+                                    <div key={qi} style={{ marginBottom: '20px' }}>
+                                      <p className="font-serif text-ink" style={{ fontSize: `${articleFontSize - 1}px`, lineHeight: 1.5, marginBottom: '8px' }}>{q}</p>
+                                      <textarea
+                                        value={cs.answers[qi] ?? ''}
+                                        onChange={e => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? e.target.value : ans) } }))}
+                                        placeholder="Tu respuesta…"
+                                        rows={2}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.5, color: 'var(--color-ink)', resize: 'none', outline: 'none' }}
+                                        onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                                        onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
+                                      />
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={() => submitComprehension(a.id)}
+                                    disabled={cs.stage === 'loading-eval' || cs.answers.every(ans => !ans.trim())}
+                                    style={{ padding: '11px 24px', borderRadius: '12px', background: 'var(--color-ink)', color: 'var(--color-surface)', fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none', opacity: cs.stage === 'loading-eval' ? 0.6 : 1 }}
+                                  >
+                                    {cs.stage === 'loading-eval' ? 'Evaluando…' : 'Enviar respuestas'}
+                                  </button>
+                                </div>
+                              );
+
+                              if (cs.stage === 'done') return (
+                                <div style={{ marginTop: '32px', borderTop: '1px solid var(--color-cream-mid)', paddingTop: '28px' }}>
+                                  <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '20px' }}>Resultados</p>
+                                  {cs.feedback.split('\n').filter(l => l.trim()).map((line, li) => {
+                                    const isOverall = line.startsWith('OVERALL:');
+                                    return (
+                                      <p key={li} className="font-serif" style={{ fontSize: isOverall ? `${articleFontSize - 1}px` : '14px', lineHeight: 1.65, marginBottom: '10px', color: isOverall ? 'var(--color-ink)' : 'var(--color-ink-secondary)', fontWeight: isOverall ? 600 : 400 }}>
+                                        {isOverall ? line.replace('OVERALL:', '').trim() : line}
+                                      </p>
+                                    );
+                                  })}
+                                  <button
+                                    onClick={() => setComprehension(c => ({ ...c, [a.id]: { stage: 'idle', questions: [], answers: [], feedback: '' } }))}
+                                    style={{ marginTop: '8px', padding: '9px 18px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer' }}
+                                  >
+                                    Intentar de nuevo
+                                  </button>
+                                </div>
+                              );
+
+                              return null;
+                            })()}
                           </div>
                         )}
                       </article>
