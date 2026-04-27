@@ -11,3 +11,7 @@ class Article(BaseModel):
     published_at: Optional[str]
     fetched_at: str
     image_url: Optional[str]
+
+
+class ReviewResult(BaseModel):
+    feedback: str

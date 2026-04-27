@@ -1,4 +1,4 @@
-import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, ChevronDown, ExternalLink, Trash2, Download, Check } from 'lucide-react';
+import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, ChevronDown, ExternalLink, Trash2, Download, Check, GraduationCap } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -11,9 +11,10 @@ const SpanishFlag = () => (
 );
 
 const navItems = [
-  { id: 'articles', label: 'Artículos', sublabel: 'Articles', icon: BookOpen },
-  { id: 'tweets',   label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
-  { id: 'pau',      label: 'Pau',       sublabel: 'Tutor IA', icon: Bot },
+  { id: 'articles',  label: 'Artículos', sublabel: 'Articles', icon: BookOpen },
+  { id: 'revision',  label: 'Revisión',  sublabel: 'Study',    icon: GraduationCap },
+  { id: 'tweets',    label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
+  { id: 'pau',       label: 'Pau',       sublabel: 'Tutor IA', icon: Bot },
 ];
 
 interface Article {
@@ -33,9 +34,12 @@ interface SavedPhrase {
   sentence: string;
   translation: string | null;
   definition: string | null;
+  category: string | null;
   article_id: string | null;
   source: string | null;
   saved_at: string;
+  srs_stage: number;
+  next_review: string;
 }
 
 interface TooltipState {
@@ -46,6 +50,7 @@ interface TooltipState {
   loading: boolean;
   definition: string;
   translation: string;
+  category: string;
   articleId: string;
   source: string;
   saved: boolean;
@@ -86,15 +91,36 @@ function timeAgo(dateStr: string): string {
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const WIDTH_DURATION = '0.3s';
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+const THEMES = ['default', 'tuscan', 'dark'] as const;
+type Theme = typeof THEMES[number];
+
+function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(() => {
+    return (localStorage.getItem('theme') as Theme) ?? 'default';
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const cycleTheme = () => setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length]);
+
+  return [theme, cycleTheme];
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
 const Sidebar = ({
-  activeTab, setActiveTab, collapsed, setCollapsed,
+  activeTab, setActiveTab, collapsed, setCollapsed, cycleTheme,
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
+  cycleTheme: () => void;
 }) => {
   const textTransition = collapsed
     ? `opacity 0.08s ease 0s, max-width ${WIDTH_DURATION} ${EASE}`
@@ -144,7 +170,7 @@ const Sidebar = ({
       </nav>
 
       <div className="animate-fade-in flex-shrink-0 flex items-center" style={{ borderTop: '1px solid var(--color-cream-mid)', padding: collapsed ? '36px 0' : '36px 20px', justifyContent: collapsed ? 'center' : 'space-between', transition: `padding ${WIDTH_DURATION} ${EASE}`, animationDelay: '400ms' }}>
-        <span style={{ flexShrink: 0, opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : '16px', overflow: 'hidden', display: 'flex', transition: textTransition }}><SpanishFlag /></span>
+        <button onClick={cycleTheme} title="Change theme" style={{ flexShrink: 0, opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : '16px', overflow: 'hidden', display: 'flex', transition: textTransition, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}><SpanishFlag /></button>
         <p className="text-ink-faint uppercase" style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.14em', textAlign: 'center', flex: collapsed ? '0 0 0px' : 1, opacity: collapsed ? 0 : 1, overflow: 'hidden', whiteSpace: 'nowrap', transition: textTransition }}>
           A language learning app
         </p>
@@ -159,6 +185,7 @@ const Sidebar = ({
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [, cycleTheme] = useTheme();
   const [activeTab, setActiveTab] = useState('articles');
   const [collapsed, setCollapsed] = useState(false);
 
@@ -182,9 +209,22 @@ export default function App() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Deck (Pau tab)
+  // Deck
   const [deck, setDeck] = useState<SavedPhrase[]>([]);
   const [deckLoading, setDeckLoading] = useState(false);
+  const [dueCount, setDueCount] = useState(0);
+
+  // SRS review session
+  type ReviewMode = 'recognition' | 'production';
+  const [reviewQueue, setReviewQueue] = useState<SavedPhrase[]>([]);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('recognition');
+  const [revealed, setRevealed] = useState(false);
+  const [productionInput, setProductionInput] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [sessionDone, setSessionDone] = useState(false);
+  const inReview = reviewQueue.length > 0 && !sessionDone;
 
   // ── Effects ──
 
@@ -208,7 +248,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'pau') fetchDeck();
+    if (activeTab !== 'revision') return;
+    fetchDeck();
+    fetch('/api/deck/due')
+      .then(r => r.json())
+      .then((d: SavedPhrase[]) => setDueCount(d.length))
+      .catch(() => setDueCount(0));
   }, [activeTab, fetchDeck]);
 
   useEffect(() => {
@@ -270,7 +315,7 @@ export default function App() {
       const x = Math.max(160, Math.min(rect.left + rect.width / 2, window.innerWidth - 160));
       const above = rect.top > 200;
 
-      setTooltip({ phrase, sentence, x, y: above ? rect.top : rect.bottom, loading: true, definition: '', translation: '', articleId: article.id, source: article.source, saved: false });
+      setTooltip({ phrase, sentence, x, y: above ? rect.top : rect.bottom, loading: true, definition: '', translation: '', category: '', articleId: article.id, source: article.source, saved: false });
 
       fetch('/api/lookup', {
         method: 'POST',
@@ -278,7 +323,7 @@ export default function App() {
         body: JSON.stringify({ phrase, sentence }),
       })
         .then(async r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(d => setTooltip(t => t ? { ...t, loading: false, definition: d.definition || 'Sin definición.', translation: d.translation || '' } : null))
+        .then(d => setTooltip(t => t ? { ...t, loading: false, definition: d.definition || 'Sin definición.', translation: d.translation || '', category: d.category || '' } : null))
         .catch(() => setTooltip(t => t ? { ...t, loading: false, definition: 'No se pudo obtener la definición.', translation: '' } : null));
     }, 10);
   }, []);
@@ -288,7 +333,7 @@ export default function App() {
     await fetch('/api/deck', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phrase: tooltip.phrase, sentence: tooltip.sentence, translation: tooltip.translation, definition: tooltip.definition, article_id: tooltip.articleId, source: tooltip.source }),
+      body: JSON.stringify({ phrase: tooltip.phrase, sentence: tooltip.sentence, translation: tooltip.translation, definition: tooltip.definition, category: tooltip.category, article_id: tooltip.articleId, source: tooltip.source }),
     });
     setTooltip(t => t ? { ...t, saved: true } : null);
     setTimeout(() => setTooltip(null), 800);
@@ -297,6 +342,63 @@ export default function App() {
   const handleDeletePhrase = async (id: string) => {
     await fetch(`/api/deck/${id}`, { method: 'DELETE' });
     setDeck(d => d.filter(p => p.id !== id));
+  };
+
+  const startReview = async () => {
+    const due: SavedPhrase[] = await fetch('/api/deck/due').then(r => r.json());
+    if (!due.length) return;
+    setReviewQueue(due);
+    setReviewIndex(0);
+    setReviewMode('recognition');
+    setRevealed(false);
+    setProductionInput('');
+    setFeedback(null);
+    setSessionDone(false);
+  };
+
+  const handleRecognition = async (remembered: boolean) => {
+    const phrase = reviewQueue[reviewIndex];
+    await fetch(`/api/deck/${phrase.id}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ remembered }),
+    });
+    setReviewMode('production');
+    setRevealed(false);
+  };
+
+  const handleEvaluate = async () => {
+    const phrase = reviewQueue[reviewIndex];
+    setFeedbackLoading(true);
+    const res = await fetch(`/api/deck/${phrase.id}/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phrase: phrase.phrase, sentence: productionInput }),
+    }).then(r => r.json()).catch(() => ({ feedback: 'No se pudo evaluar.' }));
+    setFeedback(res.feedback);
+    setFeedbackLoading(false);
+  };
+
+  const handleNextCard = () => {
+    const nextIndex = reviewIndex + 1;
+    if (nextIndex >= reviewQueue.length) {
+      setSessionDone(true);
+      fetchDeck();
+      fetch('/api/deck/due').then(r => r.json()).then((d: SavedPhrase[]) => setDueCount(d.length));
+    } else {
+      setReviewIndex(nextIndex);
+      setReviewMode('recognition');
+      setRevealed(false);
+      setProductionInput('');
+      setFeedback(null);
+    }
+  };
+
+  const exitReview = () => {
+    setReviewQueue([]);
+    setSessionDone(false);
+    setProductionInput('');
+    setFeedback(null);
   };
 
   // ── Derived ──
@@ -309,7 +411,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
       <div className="w-full flex overflow-hidden" style={{ maxWidth: '1280px', height: '90vh', background: 'var(--color-surface)', borderRadius: '28px', boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border-card)' }}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} collapsed={collapsed} setCollapsed={setCollapsed} />
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} collapsed={collapsed} setCollapsed={setCollapsed} cycleTheme={cycleTheme} />
 
         <main className="flex-1 bg-surface flex flex-col overflow-hidden">
 
@@ -434,36 +536,56 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Pau tab (deck) ── */}
-          {activeTab === 'pau' && (
+          {/* ── Revisión tab ── */}
+          {activeTab === 'revision' && !inReview && !sessionDone && (
             <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
               {deckLoading ? (
                 <p className="text-ink-faint" style={{ fontSize: '15px' }}>Cargando mazo…</p>
               ) : deck.length === 0 ? (
-                <div>
-                  <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>
-                    Tu mazo está vacío. Selecciona cualquier palabra o frase mientras lees un artículo y guárdala aquí.
-                  </p>
-                </div>
+                <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>
+                  Tu mazo está vacío. Selecciona cualquier palabra o frase mientras lees un artículo y guárdala aquí.
+                </p>
               ) : (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '28px' }}>
+                  {/* Due banner + start button */}
+                  {dueCount > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderRadius: '14px', background: 'var(--color-accent-subtle)', marginBottom: '32px' }}>
+                      <p className="font-sans" style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-ink)' }}>
+                        {dueCount} {dueCount === 1 ? 'frase para repasar' : 'frases para repasar'}
+                      </p>
+                      <button
+                        onClick={startReview}
+                        style={{ padding: '9px 20px', borderRadius: '10px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
+                      >
+                        Repasar ahora
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
                     <a href="/api/deck/export" download="deck.csv" className="inline-flex items-center gap-2 text-ink-faint hover:text-ink transition-colors duration-150" style={{ fontSize: '13px', fontWeight: 600 }}>
                       <Download size={13} />Exportar para Anki
                     </a>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+
+                  <div>
                     {deck.map((p, i) => (
                       <div key={p.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                               <span className="font-sans text-ink" style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>{p.phrase}</span>
+                              {p.category && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: 'var(--color-badge-neutral)', background: 'var(--color-badge-neutral-bg)' }}>{p.category}</span>}
                               {p.source && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: SOURCE_META[p.source]?.color ?? 'var(--color-badge-neutral)', background: SOURCE_META[p.source]?.bg ?? 'var(--color-badge-neutral-bg)' }}>{SOURCE_META[p.source]?.label ?? p.source}</span>}
                             </div>
                             {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '4px' }}>{p.translation}</p>}
                             {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: '14px', lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
                             <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, fontStyle: 'italic' }}>"{p.sentence}"</p>
+                            <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '6px' }}>
+                              {new Date(p.next_review) <= new Date()
+                                ? 'Para repasar ahora'
+                                : `Etapa ${p.srs_stage + 1} · próxima revisión en ${['1d','3d','7d','14d','30d'][p.srs_stage] ?? '?'}`}
+                            </p>
                           </div>
                           <button onClick={() => handleDeletePhrase(p.id)} className="text-ink-faint hover:text-ink transition-colors duration-150 flex-shrink-0" style={{ padding: '4px', marginTop: '4px', cursor: 'pointer', background: 'none', border: 'none' }}>
                             <Trash2 size={14} />
@@ -474,6 +596,142 @@ export default function App() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Review session ── */}
+          {activeTab === 'revision' && inReview && (() => {
+            const phrase = reviewQueue[reviewIndex];
+            const progress = `${reviewIndex + 1} / ${reviewQueue.length}`;
+            return (
+              <div className="flex-1 flex flex-col" style={{ padding: '0 48px 48px' }}>
+                {/* Progress bar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+                  <p className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 600 }}>{progress}</p>
+                  <button onClick={exitReview} className="text-ink-faint hover:text-ink transition-colors" style={{ fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: 'none', border: 'none' }}>
+                    Salir
+                  </button>
+                </div>
+                <div style={{ width: '100%', height: '3px', background: 'var(--color-cream-mid)', borderRadius: '2px', marginBottom: '48px' }}>
+                  <div style={{ height: '100%', width: `${((reviewIndex) / reviewQueue.length) * 100}%`, background: 'var(--color-accent)', borderRadius: '2px', transition: 'width 0.3s ease' }} />
+                </div>
+
+                {/* Recognition card */}
+                {reviewMode === 'recognition' && (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '560px' }}>
+                    <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '24px' }}>¿Qué significa?</p>
+                    <h2 className="font-sans text-ink" style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: '16px' }}>{phrase.phrase}</h2>
+                    <p className="font-serif text-ink-faint" style={{ fontSize: '15px', lineHeight: 1.6, fontStyle: 'italic', marginBottom: '40px' }}>"{phrase.sentence}"</p>
+
+                    {!revealed ? (
+                      <button
+                        onClick={() => setRevealed(true)}
+                        style={{ alignSelf: 'flex-start', padding: '12px 28px', borderRadius: '12px', background: 'var(--color-ink)', color: 'var(--color-surface)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
+                      >
+                        Revelar
+                      </button>
+                    ) : (
+                      <div>
+                        <div style={{ padding: '20px 24px', borderRadius: '14px', background: 'var(--color-sidebar)', marginBottom: '28px' }}>
+                          {phrase.translation && <p style={{ fontSize: '17px', fontWeight: 700, color: 'var(--color-accent)', marginBottom: '8px' }}>{phrase.translation}</p>}
+                          {phrase.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: '15px', lineHeight: 1.65 }}>{phrase.definition}</p>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <button
+                            onClick={() => handleRecognition(false)}
+                            style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'transparent', border: '1.5px solid var(--color-cream-mid)', color: 'var(--color-ink-secondary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            No lo sabía
+                          </button>
+                          <button
+                            onClick={() => handleRecognition(true)}
+                            style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'var(--color-accent)', border: 'none', color: 'var(--color-on-accent)', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            Lo sabía
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Production card */}
+                {reviewMode === 'production' && (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '560px' }}>
+                    <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '24px' }}>Úsala en una frase</p>
+                    <h2 className="font-sans text-ink" style={{ fontSize: '36px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: '36px' }}>{phrase.phrase}</h2>
+
+                    {feedback === null ? (
+                      <>
+                        <textarea
+                          value={productionInput}
+                          onChange={e => setProductionInput(e.target.value)}
+                          placeholder="Escribe una frase en español…"
+                          style={{ width: '100%', minHeight: '90px', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '16px', fontFamily: 'var(--font-serif)', lineHeight: 1.6, color: 'var(--color-ink)', resize: 'none', outline: 'none', marginBottom: '16px' }}
+                          onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                          onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
+                        />
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <button
+                            onClick={handleNextCard}
+                            style={{ padding: '12px 20px', borderRadius: '12px', background: 'transparent', border: '1.5px solid var(--color-cream-mid)', color: 'var(--color-ink-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Saltar
+                          </button>
+                          <button
+                            onClick={handleEvaluate}
+                            disabled={!productionInput.trim() || feedbackLoading}
+                            style={{ flex: 1, padding: '12px', borderRadius: '12px', background: productionInput.trim() ? 'var(--color-ink)' : 'var(--color-cream-mid)', color: productionInput.trim() ? 'var(--color-surface)' : 'var(--color-ink-faint)', fontSize: '15px', fontWeight: 700, cursor: productionInput.trim() ? 'pointer' : 'default', border: 'none' }}
+                          >
+                            {feedbackLoading ? 'Evaluando…' : 'Evaluar'}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'var(--color-sidebar)', marginBottom: '24px' }}>
+                          <p className="font-serif text-ink-faint" style={{ fontSize: '14px', fontStyle: 'italic', marginBottom: '10px' }}>"{productionInput}"</p>
+                          <p className="font-serif text-ink-secondary" style={{ fontSize: '15px', lineHeight: 1.65 }}>{feedback}</p>
+                        </div>
+                        <button
+                          onClick={handleNextCard}
+                          style={{ padding: '12px 28px', borderRadius: '12px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
+                        >
+                          {reviewIndex + 1 >= reviewQueue.length ? 'Terminar' : 'Siguiente →'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Session complete ── */}
+          {activeTab === 'revision' && sessionDone && (
+            <div className="flex-1 flex flex-col items-center justify-center" style={{ padding: '48px', textAlign: 'center' }}>
+              <h2 className="font-sans text-ink" style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '16px' }}>Sesión completada</h2>
+              <p className="font-serif text-ink-secondary" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '380px', marginBottom: '36px' }}>
+                Repasaste {reviewQueue.length} {reviewQueue.length === 1 ? 'frase' : 'frases'}.
+                {dueCount === 0 ? ' No quedan más frases para hoy.' : ` Quedan ${dueCount} más.`}
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {dueCount > 0 && (
+                  <button onClick={startReview} style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '15px', fontWeight: 700, cursor: 'pointer', border: 'none' }}>
+                    Seguir repasando
+                  </button>
+                )}
+                <button onClick={exitReview} style={{ padding: '12px 24px', borderRadius: '12px', background: 'transparent', border: '1.5px solid var(--color-cream-mid)', color: 'var(--color-ink-secondary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+                  Ver mazo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Pau tab ── */}
+          {activeTab === 'pau' && (
+            <div className="flex-1 flex items-center justify-center" style={{ padding: '48px' }}>
+              <p className="text-ink-faint font-serif" style={{ fontSize: '16px', textAlign: 'center' }}>Pau está en construcción.</p>
             </div>
           )}
 

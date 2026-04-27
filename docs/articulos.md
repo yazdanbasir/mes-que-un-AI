@@ -42,10 +42,17 @@ After a lookup, hit **Guardar** to save the phrase to your personal deck. What g
 - The phrase itself
 - The Spanish definition and English translation
 - The full sentence it came from — the original context
+- A grammar category tag (reflexive verb, subjunctive, idiom, football vocabulary, etc.)
 
-The sentence matters. Words without context evaporate. Words tied to a moment — a Barça comeback, a Pedri injury update, a Lewandowski hat-trick — stick. That's not a claim about memory theory; it's just what the app is built around.
+The sentence matters. Words without context evaporate. Words tied to a moment — a Barça comeback, a Pedri injury update, a Lewandowski hat-trick — stick.
 
-Your saved phrases live in the **Pau tab**. Review them there. Export as CSV if you want to import them into Anki for spaced repetition review.
+Saved phrases move into the **Revisión tab** where they get scheduled for spaced retrieval practice.
+
+---
+
+## Post-article comprehension check *(planned)*
+
+After reading an article, a short conversational test based on what was shown — not the full article, just what the app extracted. Questions are in Spanish. Answers can be in English or Spanish. Ends with a production prompt: write one sentence in Spanish about what you just read. This is where passive comprehension becomes active output.
 
 ---
 
@@ -65,4 +72,4 @@ A useful session pattern: read Marca for a few quick articles to warm up (famili
 
 Every session in this tab is narrow reading — deliberately staying in one domain to maximise vocabulary recycling. The same words (*remate, despejar, fuera de juego, en propia puerta, partido intenso*) appear across every source, every week. That repetition-with-variation is what drives acquisition.
 
-You don't need to study. You need to read enough, often enough, about something you care about. The app's job is to make that as frictionless as possible.
+You don't need to study. You need to read enough, often enough, about something you care about.

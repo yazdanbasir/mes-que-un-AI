@@ -15,7 +15,7 @@ import ai
 import db
 from fetchers.article import fetch_article_text
 from fetchers.rss import fetch_all
-from models import Article
+from models import Article, ReviewResult
 
 
 async def _refresh() -> None:
@@ -116,6 +116,7 @@ class SavePhraseRequest(BaseModel):
     sentence: str
     translation: Optional[str] = None
     definition: Optional[str] = None
+    category: Optional[str] = None
     article_id: Optional[str] = None
     source: Optional[str] = None
 
@@ -128,9 +129,12 @@ def save_phrase(req: SavePhraseRequest):
         "sentence":    req.sentence,
         "translation": req.translation,
         "definition":  req.definition,
+        "category":    req.category,
         "article_id":  req.article_id,
         "source":      req.source,
         "saved_at":    datetime.now(timezone.utc).isoformat(),
+        "srs_stage":   0,
+        "next_review": datetime.now(timezone.utc).isoformat(),
     })
     return {"status": "ok"}
 
@@ -138,6 +142,11 @@ def save_phrase(req: SavePhraseRequest):
 @app.get("/api/deck")
 def get_deck():
     return db.get_phrases()
+
+
+@app.get("/api/deck/due")
+def get_due():
+    return db.get_due_phrases()
 
 
 @app.delete("/api/deck/{phrase_id}")
@@ -152,7 +161,7 @@ def export_deck():
     import csv, io
     phrases = db.get_phrases()
     buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=["phrase", "sentence", "translation", "definition", "source", "saved_at"])
+    writer = csv.DictWriter(buf, fieldnames=["phrase", "sentence", "translation", "definition", "category", "source", "saved_at"])
     writer.writeheader()
     writer.writerows(phrases)
     buf.seek(0)
@@ -161,3 +170,27 @@ def export_deck():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=deck.csv"},
     )
+
+
+class AdvanceSRSRequest(BaseModel):
+    remembered: bool
+
+
+@app.post("/api/deck/{phrase_id}/review")
+def advance_srs(phrase_id: str, req: AdvanceSRSRequest):
+    db.advance_srs(phrase_id, req.remembered)
+    return {"status": "ok"}
+
+
+class ProductionRequest(BaseModel):
+    phrase: str
+    sentence: str
+
+
+@app.post("/api/deck/{phrase_id}/evaluate")
+async def evaluate_production(phrase_id: str, req: ProductionRequest):
+    try:
+        feedback = await ai.evaluate_production(req.phrase, req.sentence)
+        return {"feedback": feedback}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))

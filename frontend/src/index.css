@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root {
+:root, [data-theme="default"] {
   /* ── Accent ──────────────────────────────────────────────────────────────── */
   --color-accent:             oklch(0.58 0.135 42);
   --color-accent-hover:       oklch(0.53 0.140 42);
@@ -45,6 +45,99 @@
   --shadow-flag:     0 0 0 1px color-mix(in oklch, var(--color-ink) 12%, transparent);
   --shadow-dropdown: 0 8px 28px color-mix(in oklch, var(--color-ink) 12%, transparent);
   --shadow-tooltip:  0 12px 40px color-mix(in oklch, var(--color-ink) 35%, transparent);
+}
+
+/* ── Slate Dark ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Blue accent — clean, saturated, readable on dark slate */
+  --color-accent:             oklch(0.62 0.190 258);
+  --color-accent-hover:       oklch(0.68 0.185 256);
+  --color-accent-light:       oklch(0.22 0.055 258);
+  --color-accent-muted:       oklch(0.46 0.120 258);
+  --color-accent-subtle:      oklch(0.21 0.048 258);
+  --color-accent-subtle-text: oklch(0.70 0.155 258);
+
+  /* Slate surfaces — blue-grey, no warmth, solid and flat */
+  --color-cream:              oklch(0.130 0.018 255);
+  --color-cream-mid:          oklch(0.240 0.022 255);
+  --color-sidebar:            oklch(0.150 0.020 255);
+  --color-surface:            oklch(0.175 0.020 255);
+  --color-surface-hover:      oklch(0.220 0.020 255);
+  --color-nav-hover:          oklch(0.220 0.020 255 / 0.9);
+  --color-border-card:        oklch(0.240 0.022 255 / 1);
+
+  /* Text — cool white, high contrast */
+  --color-ink:                oklch(0.930 0.010 258);
+  --color-ink-rich:           oklch(0.860 0.010 258);
+  --color-ink-secondary:      oklch(0.620 0.012 255);
+  --color-ink-faint:          oklch(0.420 0.010 252);
+
+  /* Badges */
+  --color-badge-neutral:      oklch(0.620 0.012 255);
+  --color-badge-neutral-bg:   oklch(0.220 0.020 255);
+  --color-badge-accent:       oklch(0.70 0.155 258);
+  --color-badge-accent-bg:    oklch(0.21 0.048 258);
+
+  /* Tooltip — deepest slate, near-black */
+  --color-tooltip-bg:         oklch(0.105 0.015 255);
+  --color-tooltip-text:       oklch(0.940 0.008 258);
+  --color-tooltip-secondary:  oklch(0.680 0.010 255);
+
+  /* Yellow for saved/success — a pop of warmth in the cold palette */
+  --color-success:            oklch(0.840 0.165 88);
+  --color-on-accent:          white;
+
+  /* Shadows — pure black in dark mode, not ink-derived */
+  --shadow-card:     0 0 0 1px oklch(0.240 0.022 255),
+                     0 8px 32px oklch(0 0 0 / 0.5);
+  --shadow-flag:     0 0 0 1px oklch(0.240 0.022 255 / 0.8);
+  --shadow-dropdown: 0 4px 20px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(0.240 0.022 255);
+  --shadow-tooltip:  0 8px 32px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.240 0.022 255);
+}
+
+/* ── Tuscan Sun ──────────────────────────────────────────────────────────── */
+[data-theme="tuscan"] {
+  /* Accent — Tuscan Sun gold (#f5cb5c → oklch ~0.84 0.155 84) */
+  --color-accent:             oklch(0.840 0.155 84);
+  --color-accent-hover:       oklch(0.800 0.162 82);
+  --color-accent-light:       oklch(0.945 0.055 88);
+  --color-accent-muted:       oklch(0.880 0.090 84);
+  --color-accent-subtle:      oklch(0.920 0.072 86);
+  --color-accent-subtle-text: oklch(0.580 0.130 78);
+
+  /* Surfaces — Ivory (#e8eddf) background, Dust Grey (#cfdbd5) sidebar */
+  --color-cream:              oklch(0.926 0.022 116);
+  --color-cream-mid:          oklch(0.800 0.030 170);
+  --color-sidebar:            oklch(0.852 0.028 172);
+  --color-surface:            oklch(0.976 0.008 108);
+  --color-surface-hover:      oklch(0.916 0.022 148);
+  --color-nav-hover:          oklch(0.916 0.020 155 / 0.9);
+  --color-border-card:        oklch(0.800 0.030 170 / 0.7);
+
+  /* Text — Shadow Grey (#242423) ink, Graphite (#333533) secondary */
+  --color-ink:                oklch(0.158 0.005 108);
+  --color-ink-rich:           oklch(0.210 0.006 118);
+  --color-ink-secondary:      oklch(0.280 0.008 128);
+  --color-ink-faint:          oklch(0.480 0.010 130);
+
+  --color-badge-neutral:      oklch(0.360 0.008 125);
+  --color-badge-neutral-bg:   oklch(0.878 0.020 158);
+  --color-badge-accent:       oklch(0.560 0.128 80);
+  --color-badge-accent-bg:    oklch(0.920 0.072 86);
+
+  --color-tooltip-bg:         oklch(0.158 0.005 108);
+  --color-tooltip-text:       oklch(0.950 0.016 112);
+  --color-tooltip-secondary:  oklch(0.790 0.016 132);
+
+  --color-success:            oklch(0.500 0.140 145);
+  /* Dark text on the bright gold button */
+  --color-on-accent:          oklch(0.158 0.005 108);
+
+  --shadow-card:     0 48px 96px -24px color-mix(in oklch, var(--color-ink) 14%, transparent),
+                     0 4px 12px color-mix(in oklch, var(--color-ink) 7%, transparent);
+  --shadow-flag:     0 0 0 1px color-mix(in oklch, var(--color-ink) 12%, transparent);
+  --shadow-dropdown: 0 8px 28px color-mix(in oklch, var(--color-ink) 10%, transparent);
+  --shadow-tooltip:  0 12px 40px color-mix(in oklch, var(--color-ink) 30%, transparent);
 }
 
 @theme inline {
