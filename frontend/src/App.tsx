@@ -364,7 +364,10 @@ export default function App() {
     }
   };
 
-  const handleTextSelect = useCallback((e: React.MouseEvent, article: Article) => {
+  const handleGlobalSelect = useCallback((e: MouseEvent) => {
+    const target = e.target as Element;
+    // skip textareas, inputs, buttons, and the tooltip itself
+    if (target.closest('textarea, input, button, [data-no-lookup]')) return;
     setTimeout(() => {
       const selection = window.getSelection();
       const phrase = selection?.toString().trim() ?? '';
@@ -377,10 +380,15 @@ export default function App() {
       const rect = range?.getBoundingClientRect();
       if (!rect || rect.width === 0) return;
 
+      // pick up article context from nearest data attribute if available
+      const articleEl = (selection?.anchorNode as Element)?.closest?.('[data-article-id]');
+      const articleId = articleEl?.getAttribute('data-article-id') ?? '';
+      const source = articleEl?.getAttribute('data-article-source') ?? '';
+
       const x = Math.max(160, Math.min(rect.left + rect.width / 2, window.innerWidth - 160));
       const above = rect.top > 200;
 
-      setTooltip({ phrase, sentence, x, y: above ? rect.top : rect.bottom, loading: true, definition: '', translation: '', category: '', articleId: article.id, source: article.source, saved: false });
+      setTooltip({ phrase, sentence, x, y: above ? rect.top : rect.bottom, loading: true, definition: '', translation: '', category: '', articleId, source, saved: false });
 
       fetch('/api/lookup', {
         method: 'POST',
@@ -392,6 +400,11 @@ export default function App() {
         .catch(() => setTooltip(t => t ? { ...t, loading: false, definition: 'No se pudo obtener la definición.', translation: '' } : null));
     }, 10);
   }, []);
+
+  useEffect(() => {
+    document.addEventListener('mouseup', handleGlobalSelect);
+    return () => document.removeEventListener('mouseup', handleGlobalSelect);
+  }, [handleGlobalSelect]);
 
   const handleSave = async () => {
     if (!tooltip) return;
@@ -595,7 +608,7 @@ export default function App() {
 
                         {/* Expanded content */}
                         {isExpanded && (
-                          <div style={{ marginTop: '16px', paddingLeft: contentIndent }}>
+                          <div data-article-id={a.id} data-article-source={a.source} style={{ marginTop: '16px', paddingLeft: contentIndent }}>
 
                             {/* TPRS Narrative */}
                             {(() => {
@@ -616,7 +629,7 @@ export default function App() {
                             })()}
 
                             {/* Full article text — selectable */}
-                            <div onMouseUp={e => handleTextSelect(e, a)}>
+                            <div>
                               {(() => {
                                 const state = articleContent[a.id];
                                 if (state === 'loading') return <p className="text-ink-faint" style={{ fontSize: '14px', marginBottom: '20px' }}>Cargando artículo…</p>;
@@ -921,6 +934,7 @@ export default function App() {
       {tooltip && (
         <div
           ref={tooltipRef}
+          data-no-lookup="true"
           style={{
             position: 'fixed',
             left: tooltip.x,
