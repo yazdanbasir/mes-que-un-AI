@@ -199,6 +199,10 @@ export default function App() {
     const s = localStorage.getItem('article-font-size');
     return s ? parseInt(s, 10) : 17;
   });
+  const [revisionFontSize, setRevisionFontSize] = useState<number>(() => {
+    const s = localStorage.getItem('revision-font-size');
+    return s ? parseInt(s, 10) : 17;
+  });
 
   // Filters
   const [filterSource, setFilterSource] = useState<string | null>('elpais');
@@ -273,11 +277,19 @@ export default function App() {
   // ── Handlers ──
 
   const adjustFontSize = (delta: number) => {
-    setArticleFontSize(prev => {
-      const next = Math.max(14, Math.min(26, prev + delta));
-      localStorage.setItem('article-font-size', String(next));
-      return next;
-    });
+    if (activeTab === 'articles') {
+      setArticleFontSize(prev => {
+        const next = Math.max(14, Math.min(26, prev + delta));
+        localStorage.setItem('article-font-size', String(next));
+        return next;
+      });
+    } else {
+      setRevisionFontSize(prev => {
+        const next = Math.max(14, Math.min(26, prev + delta));
+        localStorage.setItem('revision-font-size', String(next));
+        return next;
+      });
+    }
   };
 
   const handleExpand = (articleId: string) => {
@@ -579,8 +591,8 @@ export default function App() {
                               {p.source && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: SOURCE_META[p.source]?.color ?? 'var(--color-badge-neutral)', background: SOURCE_META[p.source]?.bg ?? 'var(--color-badge-neutral-bg)' }}>{SOURCE_META[p.source]?.label ?? p.source}</span>}
                             </div>
                             {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '4px' }}>{p.translation}</p>}
-                            {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
-                            <p className="font-serif text-ink-faint" style={{ fontSize: `${articleFontSize - 2}px`, lineHeight: 1.5, fontStyle: 'italic' }}>"{p.sentence}"</p>
+                            {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
+                            <p className="font-serif text-ink-faint" style={{ fontSize: `${revisionFontSize - 2}px`, lineHeight: 1.5, fontStyle: 'italic' }}>"{p.sentence}"</p>
                             <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '6px' }}>
                               {new Date(p.next_review) <= new Date()
                                 ? 'Para repasar ahora'
@@ -634,7 +646,7 @@ export default function App() {
                       <div>
                         <div style={{ padding: '20px 24px', borderRadius: '14px', background: 'var(--color-sidebar)', marginBottom: '28px' }}>
                           {phrase.translation && <p style={{ fontSize: '17px', fontWeight: 700, color: 'var(--color-accent)', marginBottom: '8px' }}>{phrase.translation}</p>}
-                          {phrase.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.65 }}>{phrase.definition}</p>}
+                          {phrase.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.65 }}>{phrase.definition}</p>}
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                           <button
@@ -690,8 +702,8 @@ export default function App() {
                     ) : (
                       <div>
                         <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'var(--color-sidebar)', marginBottom: '24px' }}>
-                          <p className="font-serif text-ink-faint" style={{ fontSize: `${articleFontSize - 2}px`, fontStyle: 'italic', marginBottom: '10px' }}>"{productionInput}"</p>
-                          <p className="font-serif text-ink-secondary" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.65 }}>{feedback}</p>
+                          <p className="font-serif text-ink-faint" style={{ fontSize: `${revisionFontSize - 2}px`, fontStyle: 'italic', marginBottom: '10px' }}>"{productionInput}"</p>
+                          <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.65 }}>{feedback}</p>
                         </div>
                         <button
                           onClick={handleNextCard}
