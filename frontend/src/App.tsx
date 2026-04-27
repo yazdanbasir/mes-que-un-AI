@@ -696,12 +696,17 @@ export default function App() {
                               if (cs.stage === 'done') return (
                                 <div style={{ marginTop: '32px', borderTop: '1px solid var(--color-cream-mid)', paddingTop: '28px' }}>
                                   <p className="text-ink-faint" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '20px' }}>Resultados</p>
-                                  {cs.feedback.split('\n').filter(l => l.trim()).map((line, li) => {
-                                    const isOverall = line.startsWith('OVERALL:');
+                                  {cs.questions.map((q, qi) => {
+                                    const feedbackLines = cs.feedback.split('\n').filter(l => l.trim());
+                                    const fb = feedbackLines[qi] ?? '';
                                     return (
-                                      <p key={li} className="font-serif" style={{ fontSize: isOverall ? `${articleFontSize - 1}px` : '14px', lineHeight: 1.65, marginBottom: '10px', color: isOverall ? 'var(--color-ink)' : 'var(--color-ink-secondary)', fontWeight: isOverall ? 600 : 400 }}>
-                                        {isOverall ? line.replace('OVERALL:', '').trim() : line}
-                                      </p>
+                                      <div key={qi} style={{ marginBottom: '20px' }}>
+                                        <p className="font-serif text-ink" style={{ fontSize: '14px', lineHeight: 1.5, marginBottom: '6px', fontWeight: 600 }}>{q}</p>
+                                        <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, fontStyle: 'italic', marginBottom: '4px' }}>
+                                          {cs.answers[qi]?.trim() ? `"${cs.answers[qi]}"` : 'Sin respuesta'}
+                                        </p>
+                                        {fb && <p className="font-serif text-ink-secondary" style={{ fontSize: '14px', lineHeight: 1.6 }}>{fb}</p>}
+                                      </div>
                                     );
                                   })}
                                   <button

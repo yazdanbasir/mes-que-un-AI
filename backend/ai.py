@@ -61,9 +61,11 @@ Pregunta sobre hechos concretos: quién, qué pasó, cuál fue el resultado, por
 Devuelve solo las 3 preguntas, una por línea, sin numeración ni texto adicional."""
 
 _EVALUATION_SYSTEM = """You are a Spanish reading tutor. A student answered comprehension questions about a Spanish sports article.
-For each question and answer pair, give one line of feedback in English: did they understand correctly, and what (if anything) they missed.
-Be brief and encouraging. If an answer is vague but shows understanding, say so.
-At the end, add one line starting with OVERALL: summarising their comprehension in a sentence."""
+For each question and answer pair, give exactly one line of feedback in English.
+- If the answer is empty or blank: write "No answer given."
+- If the answer is correct: confirm what they got right in one sentence.
+- If the answer is wrong or incomplete: say what they missed in one sentence.
+Do not add any summary, conclusion, or extra lines at the end. One line per question, nothing more."""
 
 
 async def generate_comprehension_questions(content: str) -> list[str]:
