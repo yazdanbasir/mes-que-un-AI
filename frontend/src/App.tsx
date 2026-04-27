@@ -209,6 +209,11 @@ export default function App() {
   const [showFilter, setShowFilter] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
+  // Revision category filter
+  const [revisionCategory, setRevisionCategory] = useState<string | null>(null);
+  const [showRevisionFilter, setShowRevisionFilter] = useState(false);
+  const revisionFilterRef = useRef<HTMLDivElement>(null);
+
   // Lookup tooltip
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -276,6 +281,13 @@ export default function App() {
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [tooltip]);
+
+  useEffect(() => {
+    if (!showRevisionFilter) return;
+    const h = (e: MouseEvent) => { if (!revisionFilterRef.current?.contains(e.target as Node)) setShowRevisionFilter(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showRevisionFilter]);
 
   // ── Handlers ──
 
@@ -365,7 +377,8 @@ export default function App() {
   };
 
   const startReview = async () => {
-    const due: SavedPhrase[] = await fetch('/api/deck/due').then(r => r.json());
+    const all: SavedPhrase[] = await fetch('/api/deck/due').then(r => r.json());
+    const due = revisionCategory ? all.filter(p => p.category === revisionCategory) : all;
     if (!due.length) return;
     setReviewQueue(due);
     setReviewIndex(0);
@@ -426,6 +439,9 @@ export default function App() {
   const availableSources = [...new Set(articles.map(a => a.source))];
   const displayedArticles = articles.filter(a => !filterSource || a.source === filterSource).filter(isFootball);
 
+  const availableCategories = [...new Set(deck.map(p => p.category).filter(Boolean))] as string[];
+  const filteredDeck = revisionCategory ? deck.filter(p => p.category === revisionCategory) : deck;
+
   // ── Render ──
 
   return (
@@ -452,6 +468,7 @@ export default function App() {
 
                 {/* Source filter — articles only */}
                 {activeTab === 'articles' && <div ref={filterRef} style={{ position: 'relative' }}>
+
                   <button onClick={() => setShowFilter(f => !f)} className="flex items-center gap-2 transition-colors duration-150" style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: filterSource ? 'var(--color-accent-subtle)' : 'transparent', color: filterSource ? 'var(--color-accent-subtle-text)' : 'var(--color-ink-faint)', cursor: 'pointer' }} onMouseEnter={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'; }} onMouseLeave={e => { if (!filterSource) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
                     <SlidersHorizontal size={14} />
                   </button>
@@ -468,6 +485,41 @@ export default function App() {
                     </div>
                   )}
                 </div>}
+
+                {/* Category filter — revision only */}
+                {activeTab === 'revision' && availableCategories.length > 0 && (
+                  <div ref={revisionFilterRef} style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setShowRevisionFilter(f => !f)}
+                      className="flex items-center gap-2 transition-colors duration-150"
+                      style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: revisionCategory ? 'var(--color-accent-subtle)' : 'transparent', color: revisionCategory ? 'var(--color-accent-subtle-text)' : 'var(--color-ink-faint)', cursor: 'pointer' }}
+                      onMouseEnter={e => { if (!revisionCategory) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'; }}
+                      onMouseLeave={e => { if (!revisionCategory) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                    >
+                      <SlidersHorizontal size={14} />
+                    </button>
+                    {showRevisionFilter && (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--color-surface)', border: '1px solid var(--color-cream-mid)', borderRadius: '14px', padding: '6px', boxShadow: 'var(--shadow-dropdown)', zIndex: 20, minWidth: '190px' }}>
+                        {([null, ...availableCategories] as (string | null)[]).map(cat => {
+                          const isSelected = revisionCategory === cat;
+                          const count = cat ? deck.filter(p => p.category === cat).length : deck.length;
+                          return (
+                            <button
+                              key={cat ?? '__all__'}
+                              onClick={() => { setRevisionCategory(cat); setShowRevisionFilter(false); }}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: isSelected ? 600 : 500, color: isSelected ? 'var(--color-accent-subtle-text)' : 'var(--color-ink)', background: isSelected ? 'var(--color-accent-subtle)' : 'transparent', cursor: 'pointer', gap: '12px' }}
+                              onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'; }}
+                              onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                            >
+                              <span>{cat ?? 'Todas las categorías'}</span>
+                              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-ink-faint)' }}>{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </header>
@@ -568,19 +620,20 @@ export default function App() {
               ) : (
                 <div>
                   {/* Due banner + start button */}
-                  {dueCount > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderRadius: '14px', background: 'var(--color-accent-subtle)', marginBottom: '32px' }}>
-                      <p className="font-sans" style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-ink)' }}>
-                        {dueCount} {dueCount === 1 ? 'frase para repasar' : 'frases para repasar'}
-                      </p>
-                      <button
-                        onClick={startReview}
-                        style={{ padding: '9px 20px', borderRadius: '10px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
-                      >
-                        Repasar ahora
-                      </button>
-                    </div>
-                  )}
+                  {(() => {
+                    const dueCounted = filteredDeck.filter(p => new Date(p.next_review) <= new Date()).length;
+                    return dueCounted > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderRadius: '14px', background: 'var(--color-accent-subtle)', marginBottom: '32px' }}>
+                        <p className="font-sans" style={{ fontWeight: 600, fontSize: '15px', color: 'var(--color-ink)' }}>
+                          {dueCounted} {dueCounted === 1 ? 'frase para repasar' : 'frases para repasar'}
+                          {revisionCategory ? ` · ${revisionCategory}` : ''}
+                        </p>
+                        <button onClick={startReview} style={{ padding: '9px 20px', borderRadius: '10px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontSize: '14px', fontWeight: 700, cursor: 'pointer', border: 'none' }}>
+                          Repasar ahora
+                        </button>
+                      </div>
+                    ) : null;
+                  })()}
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
                     <a href="/api/deck/export" download="deck.csv" className="inline-flex items-center gap-2 text-ink-faint hover:text-ink transition-colors duration-150" style={{ fontSize: '13px', fontWeight: 600 }}>
@@ -589,7 +642,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    {deck.map((p, i) => (
+                    {filteredDeck.map((p, i) => (
                       <div key={p.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>

@@ -22,7 +22,7 @@ Always respond in this exact format (no extra text):
 
 DEFINICIÓN: [definition in Spanish, max 1 sentence] / [same definition in English, max 1 sentence]
 TRADUCCIÓN: [English translation, 1-5 words]
-CATEGORÍA: [one of: verbo reflexivo, subjuntivo, vocabulario fútbol, expresión idiomática, vocabulario general]"""
+CATEGORÍA: [one of: subjuntivo, verbo reflexivo, expresión idiomática, vocabulario fútbol, locución prepositiva, vocabulario periodístico, falso amigo, otro]"""
 
 _DEF_RE  = re.compile(r'DEFINICI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=TRADUCCI|\Z)', re.IGNORECASE | re.DOTALL)
 _TRA_RE  = re.compile(r'TRADUCCI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=CATEGOR|\Z)',  re.IGNORECASE | re.DOTALL)
