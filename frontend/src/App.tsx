@@ -88,6 +88,20 @@ function timeAgo(dateStr: string): string {
   return `hace ${Math.floor(diff / 86400)}d`;
 }
 
+function highlightDeckPhrases(text: string, phrases: string[]): React.ReactNode {
+  if (!phrases.length) return text;
+  const escaped = [...phrases]
+    .sort((a, b) => b.length - a.length)
+    .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <mark key={i} style={{ background: 'oklch(0.91 0.045 44)', borderRadius: '3px', padding: '0 2px', color: 'inherit' }}>{part}</mark>
+      : part
+  );
+}
+
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const WIDTH_DURATION = '0.3s';
 
@@ -487,6 +501,7 @@ export default function App() {
 
   const availableSources = [...new Set(articles.map(a => a.source))];
   const displayedArticles = articles.filter(a => !filterSource || a.source === filterSource).filter(isFootball);
+  const deckPhrases = deck.map(p => p.phrase).filter(Boolean);
 
   const availableCategories = [...new Set(deck.map(p => p.category).filter(Boolean))] as string[];
   const filteredDeck = revisionCategory ? deck.filter(p => p.category === revisionCategory) : deck;
@@ -623,7 +638,7 @@ export default function App() {
                                   {ns === 'loading' ? (
                                     <p className="text-ink-faint" style={{ fontSize: '15px' }}>Generando…</p>
                                   ) : (
-                                    <p className="font-serif" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, color: 'var(--color-ink-rich)' }}>{ns}</p>
+                                    <p className="font-serif" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, color: 'var(--color-ink-rich)' }}>{highlightDeckPhrases(ns, deckPhrases)}</p>
                                   )}
                                 </div>
                               );
@@ -637,7 +652,7 @@ export default function App() {
                                 if (state === 'error') return <p className="text-ink-faint" style={{ fontSize: '14px', marginBottom: '20px' }}>No se pudo cargar el contenido.</p>;
                                 if (typeof state === 'string') {
                                   return state.split('\n\n').filter(p => p.trim()).map((para, pi) => (
-                                    <p key={pi} className="font-serif text-ink-secondary" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, marginBottom: '16px' }}>{para}</p>
+                                    <p key={pi} className="font-serif text-ink-secondary" style={{ fontSize: `${articleFontSize}px`, lineHeight: 1.75, marginBottom: '16px' }}>{highlightDeckPhrases(para, deckPhrases)}</p>
                                   ));
                                 }
                                 return null;
