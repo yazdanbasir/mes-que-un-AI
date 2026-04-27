@@ -133,7 +133,7 @@ const Sidebar = ({
     >
       <div className="animate-fade-in flex-shrink-0" style={{ padding: collapsed ? '54px 0 48px' : '54px 44px 48px', transition: `padding ${WIDTH_DURATION} ${EASE}`, animationDelay: '0ms' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          <div className="bg-accent flex-shrink-0" style={{ width: '27px', height: '27px', borderRadius: '6px', transform: 'rotate(12deg)' }} />
+          <div className="bg-accent-subtle flex-shrink-0" style={{ width: '27px', height: '27px', borderRadius: '6px', transform: 'rotate(12deg)' }} />
           <h1 className="font-sans text-ink" style={{ fontSize: '33px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', opacity: collapsed ? 0 : 1, maxWidth: collapsed ? 0 : '260px', marginLeft: collapsed ? 0 : '16px', transition: textTransition }}>
             Mes Que Un AI
           </h1>
