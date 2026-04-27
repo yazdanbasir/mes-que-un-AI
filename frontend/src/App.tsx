@@ -322,7 +322,10 @@ export default function App() {
       const selection = window.getSelection();
       const phrase = selection?.toString().trim() ?? '';
       if (phrase.length < 2) return;
-      const sentence = selection?.anchorNode?.textContent?.trim() ?? '';
+      const fullText = selection?.anchorNode?.textContent?.trim() ?? '';
+      const sentence = fullText
+        .split(/(?<=[.!?])\s+/)
+        .find(s => s.toLowerCase().includes(phrase.toLowerCase())) ?? fullText.slice(0, 160);
       const range = selection?.getRangeAt(0);
       const rect = range?.getBoundingClientRect();
       if (!rect || rect.width === 0) return;
@@ -597,7 +600,9 @@ export default function App() {
                             </div>
                             {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '4px' }}>{p.translation}</p>}
                             {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
-                            <p className="font-serif text-ink-faint" style={{ fontSize: `${revisionFontSize - 2}px`, lineHeight: 1.5, fontStyle: 'italic' }}>"{p.sentence}"</p>
+                            <p className="font-serif text-ink-faint" style={{ fontSize: `${revisionFontSize - 2}px`, lineHeight: 1.5, fontStyle: 'italic' }}>
+                              "{p.sentence.split(/(?<=[.!?])\s+/).find(s => s.toLowerCase().includes(p.phrase.toLowerCase())) ?? p.sentence.slice(0, 160)}"
+                            </p>
                             <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '6px' }}>
                               {new Date(p.next_review) <= new Date()
                                 ? 'Para repasar ahora'
