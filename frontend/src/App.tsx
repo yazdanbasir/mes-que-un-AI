@@ -598,16 +598,16 @@ export default function App() {
                               {p.category && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: 'var(--color-badge-neutral)', background: 'var(--color-badge-neutral-bg)' }}>{p.category}</span>}
                               {p.source && <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: SOURCE_META[p.source]?.color ?? 'var(--color-badge-neutral)', background: SOURCE_META[p.source]?.bg ?? 'var(--color-badge-neutral-bg)' }}>{SOURCE_META[p.source]?.label ?? p.source}</span>}
                             </div>
-                            {p.translation && <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '4px' }}>{p.translation}</p>}
-                            {p.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
+                            {p.translation && <p className="font-sans text-ink" style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '6px' }}>{p.translation}</p>}
+                            {p.definition && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.6, marginBottom: '8px' }}>{p.definition}</p>}
                             <p className="font-serif text-ink-faint" style={{ fontSize: `${revisionFontSize - 2}px`, lineHeight: 1.5, fontStyle: 'italic' }}>
                               "{p.sentence.split(/(?<=[.!?])\s+/).find(s => s.toLowerCase().includes(p.phrase.toLowerCase())) ?? p.sentence.slice(0, 160)}"
                             </p>
-                            <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '6px' }}>
-                              {new Date(p.next_review) <= new Date()
-                                ? 'Para repasar ahora'
-                                : `Etapa ${p.srs_stage + 1} · próxima revisión en ${['1d','3d','7d','14d','30d'][p.srs_stage] ?? '?'}`}
-                            </p>
+                            {new Date(p.next_review) > new Date() && (
+                              <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '6px' }}>
+                                {`Etapa ${p.srs_stage + 1} · próxima revisión en ${['1d','3d','7d','14d','30d'][p.srs_stage] ?? '?'}`}
+                              </p>
+                            )}
                           </div>
                           <button onClick={() => handleDeletePhrase(p.id)} className="text-ink-faint hover:text-ink transition-colors duration-150 flex-shrink-0" style={{ padding: '4px', marginTop: '4px', cursor: 'pointer', background: 'none', border: 'none' }}>
                             <Trash2 size={14} />
@@ -655,8 +655,8 @@ export default function App() {
                     ) : (
                       <div>
                         <div style={{ padding: '20px 24px', borderRadius: '14px', background: 'var(--color-sidebar)', marginBottom: '28px' }}>
-                          {phrase.translation && <p style={{ fontSize: '17px', fontWeight: 700, color: 'var(--color-accent)', marginBottom: '8px' }}>{phrase.translation}</p>}
-                          {phrase.definition && <p className="font-serif text-ink-secondary" style={{ fontSize: `${revisionFontSize}px`, lineHeight: 1.65 }}>{phrase.definition}</p>}
+                          {phrase.translation && <p className="font-sans text-ink" style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>{phrase.translation}</p>}
+                          {phrase.definition && <p className="font-serif text-ink-faint" style={{ fontSize: '14px', lineHeight: 1.65 }}>{phrase.definition}</p>}
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                           <button

@@ -17,12 +17,12 @@ def get_client() -> AsyncGroq:
 
 # ── Lookup ────────────────────────────────────────────────────────────────────
 
-_LOOKUP_SYSTEM = """Eres un tutor de español. El usuario está leyendo un artículo y ha seleccionado una palabra o frase.
-Responde SIEMPRE en este formato exacto (sin texto adicional):
+_LOOKUP_SYSTEM = """You are a Spanish language tutor. The user is reading a Spanish article and selected a word or phrase they don't understand.
+Always respond in this exact format (no extra text):
 
-DEFINICIÓN: [definición en español simple, máximo 2 frases]
-TRADUCCIÓN: [traducción al inglés]
-CATEGORÍA: [una de: verbo reflexivo, subjuntivo, vocabulario fútbol, expresión idiomática, vocabulario general]"""
+DEFINICIÓN: [definition in Spanish, max 1 sentence] / [same definition in English, max 1 sentence]
+TRADUCCIÓN: [English translation, 1-5 words]
+CATEGORÍA: [one of: verbo reflexivo, subjuntivo, vocabulario fútbol, expresión idiomática, vocabulario general]"""
 
 _DEF_RE  = re.compile(r'DEFINICI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=TRADUCCI|\Z)', re.IGNORECASE | re.DOTALL)
 _TRA_RE  = re.compile(r'TRADUCCI[OÓ]N\s*:+\s*\*{0,2}(.*?)(?=CATEGOR|\Z)',  re.IGNORECASE | re.DOTALL)
