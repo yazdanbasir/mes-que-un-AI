@@ -286,7 +286,7 @@ export default function App() {
         body: JSON.stringify({ id: a.id, title: a.title, source: a.source, url: a.url, image_url: a.image_url, summary: a.summary }),
       });
       setReadIds(prev => new Set([...prev, a.id]));
-      setReadArticles(r => [a, ...r]);
+      setReadArticles(r => [{ ...a, fetched_at: new Date().toISOString() }, ...r]);
     }
   };
 
@@ -301,7 +301,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: a.id, title: a.title, source: a.source, url: a.url, image_url: a.image_url, summary: a.summary }),
       });
-      setSavedArticles(s => [a, ...s]);
+      setSavedArticles(s => [{ ...a, fetched_at: new Date().toISOString() }, ...s]);
     }
   };
 
@@ -399,8 +399,8 @@ export default function App() {
   useEffect(() => {
     fetchDeck();
     fetch('/api/read').then(r => r.json()).then((ids: string[]) => setReadIds(new Set(ids)));
-    fetch('/api/read/articles').then(r => r.json()).then(setReadArticles).catch(() => {});
-    fetch('/api/saved').then(r => r.json()).then(setSavedArticles).catch(() => {});
+    fetch('/api/read/articles').then(r => r.json()).then((d: any[]) => setReadArticles(d.map(a => ({ ...a, published_at: null, fetched_at: a.read_at ?? a.saved_at ?? '' })))).catch(() => {});
+    fetch('/api/saved').then(r => r.json()).then((d: any[]) => setSavedArticles(d.map(a => ({ ...a, published_at: null, fetched_at: a.saved_at ?? '' })))).catch(() => {});
     fetch('/api/prefs/article-font-size?default=17').then(r => r.json()).then(d => setArticleFontSize(parseInt(d.value, 10) || 17));
     fetch('/api/prefs/revision-font-size?default=17').then(r => r.json()).then(d => setRevisionFontSize(parseInt(d.value, 10) || 17));
   }, [fetchDeck]);
@@ -709,7 +709,10 @@ export default function App() {
   // ── Derived ──
 
   const availableSources = [...new Set(articles.map(a => a.source))];
-  const displayedArticles = articles.filter(a => !filterSource || a.source === filterSource).filter(isFootball);
+  const displayedArticles =
+    activeTab === 'saved'
+      ? (savedView === 'saved' ? savedArticles : readArticles)
+      : articles.filter(a => !filterSource || a.source === filterSource).filter(isFootball);
   const deckPhrases = deck.map(p => p.phrase).filter(Boolean);
 
   const availableCategories = [...new Set(deck.map(p => p.category).filter(Boolean))] as string[];
@@ -730,7 +733,7 @@ export default function App() {
               {navItems.find(n => n.id === activeTab)?.label}
             </h2>
 
-            {(activeTab === 'articles' || activeTab === 'revision') && (
+            {(activeTab === 'articles' || activeTab === 'revision' || activeTab === 'saved') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* Font size */}
                 <div style={{ display: 'flex', border: '1px solid var(--color-cream-mid)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -793,17 +796,32 @@ export default function App() {
                     )}
                   </div>
                 )}
+
+                {/* Saved/read toggle — saved tab only */}
+                {activeTab === 'saved' && (
+                  <div style={{ display: 'flex', gap: '2px', padding: '3px', background: 'var(--color-sidebar)', borderRadius: '10px' }}>
+                    {(['saved', 'read'] as const).map(v => (
+                      <button key={v} onClick={() => setSavedView(v)} style={{ padding: '5px 14px', borderRadius: '7px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', background: savedView === v ? 'var(--color-surface)' : 'transparent', color: savedView === v ? 'var(--color-ink)' : 'var(--color-ink-faint)', boxShadow: savedView === v ? '0 1px 4px oklch(0.16 0.010 58 / 0.08)' : 'none', transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}>
+                        {v === 'saved' ? `Guardados${savedArticles.length ? ` · ${savedArticles.length}` : ''}` : `Leídos${readArticles.length ? ` · ${readArticles.length}` : ''}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </header>
 
-          {/* ── Articles tab ── */}
-          {activeTab === 'articles' && (
+          {/* ── Articles + Saved tabs share the same card renderer ── */}
+          {(activeTab === 'articles' || activeTab === 'saved') && (
             <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
-              {loading ? (
+              {(loading && activeTab === 'articles') ? (
                 <p className="text-ink-faint" style={{ fontSize: '15px' }}>Cargando artículos…</p>
               ) : displayedArticles.length === 0 ? (
-                <p className="text-ink-faint" style={{ fontSize: '15px' }}>{filterSource ? 'No hay artículos de esta fuente.' : 'No hay artículos. ¿Está corriendo el backend?'}</p>
+                <p className="text-ink-faint" style={{ fontSize: '15px' }}>
+                  {activeTab === 'saved'
+                    ? (savedView === 'saved' ? 'No has guardado ningún artículo todavía.' : 'No has marcado ningún artículo como leído todavía.')
+                    : (filterSource ? 'No hay artículos de esta fuente.' : 'No hay artículos. ¿Está corriendo el backend?')}
+                </p>
               ) : (
                 <div>
                   {displayedArticles.map((a, i) => {
@@ -833,7 +851,17 @@ export default function App() {
 
                         {/* Article actions */}
                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingLeft: a.image_url ? '88px' : '0' }}>
-                          {(() => {
+                          {activeTab === 'saved' ? (
+                            // In the saved tab: single remove button
+                            <button
+                              onClick={() => savedView === 'saved' ? toggleSaveArticle(a) : toggleRead(a)}
+                              style={{ padding: '5px 13px', borderRadius: '8px', border: '1.5px solid var(--color-cream-mid)', background: 'transparent', fontSize: '12px', fontWeight: 600, color: 'var(--color-ink-secondary)', cursor: 'pointer' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; }}
+                            >
+                              Quitar
+                            </button>
+                          ) : (() => {
                             const isSaved = savedArticles.some(s => s.id === a.id);
                             const isRead = readIds.has(a.id);
                             return (
@@ -841,19 +869,15 @@ export default function App() {
                                 <button
                                   onClick={() => toggleSaveArticle(a)}
                                   style={{ padding: '5px 13px', borderRadius: '8px', border: `1.5px solid ${isSaved ? 'oklch(0.58 0.135 42)' : 'var(--color-cream-mid)'}`, background: 'transparent', fontSize: '12px', fontWeight: 600, color: isSaved ? 'oklch(0.58 0.135 42)' : 'var(--color-ink-secondary)', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
-                                  onMouseEnter={e => { if (!isSaved) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; } }}
-                                  onMouseLeave={e => { if (!isSaved) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; } }}
-                                >
-                                  {isSaved ? 'Guardado' : 'Guardar'}
-                                </button>
+                                  onMouseEnter={e => { if (!isSaved) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; }}
+                                  onMouseLeave={e => { if (!isSaved) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; }}
+                                >{isSaved ? 'Guardado' : 'Guardar'}</button>
                                 <button
                                   onClick={() => toggleRead(a)}
                                   style={{ padding: '5px 13px', borderRadius: '8px', border: `1.5px solid ${isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-cream-mid)'}`, background: 'transparent', fontSize: '12px', fontWeight: 600, color: isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-ink-secondary)', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
-                                  onMouseEnter={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; } }}
-                                  onMouseLeave={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; } }}
-                                >
-                                  {isRead ? 'Leído ✓' : 'Marcar leído'}
-                                </button>
+                                  onMouseEnter={e => { if (!isRead) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; }}
+                                  onMouseLeave={e => { if (!isRead) (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; }}
+                                >{isRead ? 'Leído ✓' : 'Marcar leído'}</button>
                               </>
                             );
                           })()}
@@ -1188,68 +1212,6 @@ export default function App() {
                   Ver mazo
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* ── Guardados tab ── */}
-          {activeTab === 'saved' && (
-            <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
-              {/* Toggle */}
-              <div style={{ display: 'flex', gap: '2px', marginBottom: '32px', padding: '3px', background: 'var(--color-sidebar)', borderRadius: '12px', alignSelf: 'flex-start', width: 'fit-content' }}>
-                {(['saved', 'read'] as const).map(v => (
-                  <button
-                    key={v}
-                    onClick={() => setSavedView(v)}
-                    style={{ padding: '8px 20px', borderRadius: '9px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: savedView === v ? 'var(--color-surface)' : 'transparent', color: savedView === v ? 'var(--color-ink)' : 'var(--color-ink-faint)', boxShadow: savedView === v ? '0 1px 4px oklch(0.16 0.010 58 / 0.08)' : 'none', transition: 'all 0.15s ease' }}
-                  >
-                    {v === 'saved' ? `Guardados${savedArticles.length ? ` · ${savedArticles.length}` : ''}` : `Leídos${readArticles.length ? ` · ${readArticles.length}` : ''}`}
-                  </button>
-                ))}
-              </div>
-
-              {/* Article list */}
-              {(() => {
-                const list = savedView === 'saved' ? savedArticles : readArticles;
-                const emptyMsg = savedView === 'saved'
-                  ? 'No has guardado ningún artículo todavía. Usa el botón Guardar en cada artículo.'
-                  : 'No has marcado ningún artículo como leído todavía.';
-                if (!list.length) return <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>{emptyMsg}</p>;
-                return (
-                  <div>
-                    {list.map((a, i) => {
-                      const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
-                      const dateStr = a.published_at ?? a.fetched_at;
-                      return (
-                        <div key={a.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                          {a.image_url && <img src={a.image_url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, marginTop: '2px' }} />}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: meta.color, background: meta.bg }}>{meta.label}</span>
-                              <span className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 500 }}>{timeAgo(dateStr)}</span>
-                            </div>
-                            <h3 className="font-sans text-ink" style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: a.summary ? '6px' : 0 }}>{a.title}</h3>
-                            {a.summary && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.summary}</p>}
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center', paddingTop: '2px' }}>
-                            <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex' }}>
-                              <ExternalLink size={14} />
-                            </a>
-                            {savedView === 'saved' ? (
-                              <button onClick={() => toggleSaveArticle(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Quitar de guardados">
-                                <BookmarkCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
-                              </button>
-                            ) : (
-                              <button onClick={() => toggleRead(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Marcar como no leído">
-                                <CheckCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
             </div>
           )}
 
