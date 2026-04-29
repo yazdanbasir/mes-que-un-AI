@@ -176,10 +176,20 @@ def init_saved_articles(conn) -> None:
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS read_articles (
-            id      TEXT PRIMARY KEY,
-            read_at TEXT NOT NULL
+            id        TEXT PRIMARY KEY,
+            title     TEXT NOT NULL,
+            source    TEXT NOT NULL,
+            url       TEXT NOT NULL,
+            image_url TEXT,
+            summary   TEXT,
+            read_at   TEXT NOT NULL
         )
     """)
+    # migrate existing read_articles that only have id + read_at
+    ra_cols = [row[1] for row in conn.execute("PRAGMA table_info(read_articles)").fetchall()]
+    for col, defn in [("title", "TEXT NOT NULL DEFAULT ''"), ("source", "TEXT NOT NULL DEFAULT ''"), ("url", "TEXT NOT NULL DEFAULT ''"), ("image_url", "TEXT"), ("summary", "TEXT")]:
+        if col not in ra_cols:
+            conn.execute(f"ALTER TABLE read_articles ADD COLUMN {col} {defn}")
 
 
 def save_article(article: dict) -> None:
@@ -197,17 +207,25 @@ def unsave_article(article_id: str) -> None:
         conn.execute("DELETE FROM saved_articles WHERE id = ?", (article_id,))
 
 
-def mark_read(article_id: str) -> None:
+def mark_read(article: dict) -> None:
     with _connect() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO read_articles (id, read_at) VALUES (?, ?)",
-            (article_id, _now()),
+            """INSERT OR REPLACE INTO read_articles
+               (id, title, source, url, image_url, summary, read_at)
+               VALUES (:id, :title, :source, :url, :image_url, :summary, :read_at)""",
+            {**article, "read_at": _now()},
         )
 
 
 def unmark_read(article_id: str) -> None:
     with _connect() as conn:
         conn.execute("DELETE FROM read_articles WHERE id = ?", (article_id,))
+
+
+def get_read_articles() -> list[dict]:
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM read_articles ORDER BY read_at DESC").fetchall()
+    return [dict(row) for row in rows]
 
 
 def get_pref(key: str, default: str) -> str:

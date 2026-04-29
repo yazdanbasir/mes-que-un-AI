@@ -192,9 +192,14 @@ def get_read():
     return db.get_read_ids()
 
 
+@app.get("/api/read/articles")
+def get_read_articles():
+    return db.get_read_articles()
+
+
 @app.post("/api/read/{article_id}")
-def mark_read(article_id: str):
-    db.mark_read(article_id)
+def mark_read(article_id: str, req: SaveArticleRequest):
+    db.mark_read({"id": req.id, "title": req.title, "source": req.source, "url": req.url, "image_url": req.image_url, "summary": req.summary})
     return {"status": "ok"}
 
 

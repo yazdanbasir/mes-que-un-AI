@@ -270,15 +270,24 @@ export default function App() {
   // Read / saved articles
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [savedArticles, setSavedArticles] = useState<Article[]>([]);
+  const [readArticles, setReadArticles] = useState<Article[]>([]);
+  const [savedView, setSavedView] = useState<'saved' | 'read'>('saved');
 
-  const toggleRead = async (id: string) => {
-    const isRead = readIds.has(id);
-    await fetch(`/api/read/${id}`, { method: isRead ? 'DELETE' : 'POST' });
-    setReadIds(prev => {
-      const next = new Set(prev);
-      isRead ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const toggleRead = async (a: Article) => {
+    const isRead = readIds.has(a.id);
+    if (isRead) {
+      await fetch(`/api/read/${a.id}`, { method: 'DELETE' });
+      setReadIds(prev => { const next = new Set(prev); next.delete(a.id); return next; });
+      setReadArticles(r => r.filter(x => x.id !== a.id));
+    } else {
+      await fetch(`/api/read/${a.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, title: a.title, source: a.source, url: a.url, image_url: a.image_url, summary: a.summary }),
+      });
+      setReadIds(prev => new Set([...prev, a.id]));
+      setReadArticles(r => [a, ...r]);
+    }
   };
 
   const toggleSaveArticle = async (a: Article) => {
@@ -312,7 +321,7 @@ export default function App() {
   const [paulShowHistory, setPaulShowHistory] = useState(false);
   const [paulListening, setPaulListening] = useState(false);
   const [paulSpeaking, setPaulSpeaking] = useState(false);
-  const [paulVoiceSupported] = useState(() => !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition));
+  const [paulVoiceSupported] = useState(() => !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
   const paulChatRef = useRef<HTMLDivElement>(null);
   const paulHistoryRef = useRef<HTMLDivElement>(null);
   const paulRecognitionRef = useRef<any>(null);
@@ -390,6 +399,8 @@ export default function App() {
   useEffect(() => {
     fetchDeck();
     fetch('/api/read').then(r => r.json()).then((ids: string[]) => setReadIds(new Set(ids)));
+    fetch('/api/read/articles').then(r => r.json()).then(setReadArticles).catch(() => {});
+    fetch('/api/saved').then(r => r.json()).then(setSavedArticles).catch(() => {});
     fetch('/api/prefs/article-font-size?default=17').then(r => r.json()).then(d => setArticleFontSize(parseInt(d.value, 10) || 17));
     fetch('/api/prefs/revision-font-size?default=17').then(r => r.json()).then(d => setRevisionFontSize(parseInt(d.value, 10) || 17));
   }, [fetchDeck]);
@@ -836,7 +847,7 @@ export default function App() {
                                   {isSaved ? 'Guardado' : 'Guardar'}
                                 </button>
                                 <button
-                                  onClick={() => toggleRead(a.id)}
+                                  onClick={() => toggleRead(a)}
                                   style={{ padding: '5px 13px', borderRadius: '8px', border: `1.5px solid ${isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-cream-mid)'}`, background: 'transparent', fontSize: '12px', fontWeight: 600, color: isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-ink-secondary)', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
                                   onMouseEnter={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; } }}
                                   onMouseLeave={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; } }}
@@ -1183,39 +1194,62 @@ export default function App() {
           {/* ── Guardados tab ── */}
           {activeTab === 'saved' && (
             <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
-              {savedArticles.length === 0 ? (
-                <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>
-                  No has guardado ningún artículo todavía. Usa el icono de marcador en cada artículo para guardarlo aquí.
-                </p>
-              ) : (
-                <div>
-                  {savedArticles.map((a, i) => {
-                    const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
-                    const dateStr = a.published_at ?? a.fetched_at;
-                    return (
-                      <div key={a.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                        {a.image_url && <img src={a.image_url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, marginTop: '2px' }} />}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: meta.color, background: meta.bg }}>{meta.label}</span>
-                            <span className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 500 }}>{timeAgo(dateStr)}</span>
+              {/* Toggle */}
+              <div style={{ display: 'flex', gap: '2px', marginBottom: '32px', padding: '3px', background: 'var(--color-sidebar)', borderRadius: '12px', alignSelf: 'flex-start', width: 'fit-content' }}>
+                {(['saved', 'read'] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setSavedView(v)}
+                    style={{ padding: '8px 20px', borderRadius: '9px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: savedView === v ? 'var(--color-surface)' : 'transparent', color: savedView === v ? 'var(--color-ink)' : 'var(--color-ink-faint)', boxShadow: savedView === v ? '0 1px 4px oklch(0.16 0.010 58 / 0.08)' : 'none', transition: 'all 0.15s ease' }}
+                  >
+                    {v === 'saved' ? `Guardados${savedArticles.length ? ` · ${savedArticles.length}` : ''}` : `Leídos${readArticles.length ? ` · ${readArticles.length}` : ''}`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Article list */}
+              {(() => {
+                const list = savedView === 'saved' ? savedArticles : readArticles;
+                const emptyMsg = savedView === 'saved'
+                  ? 'No has guardado ningún artículo todavía. Usa el botón Guardar en cada artículo.'
+                  : 'No has marcado ningún artículo como leído todavía.';
+                if (!list.length) return <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>{emptyMsg}</p>;
+                return (
+                  <div>
+                    {list.map((a, i) => {
+                      const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
+                      const dateStr = a.published_at ?? a.fetched_at;
+                      return (
+                        <div key={a.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                          {a.image_url && <img src={a.image_url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, marginTop: '2px' }} />}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: meta.color, background: meta.bg }}>{meta.label}</span>
+                              <span className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 500 }}>{timeAgo(dateStr)}</span>
+                            </div>
+                            <h3 className="font-sans text-ink" style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: a.summary ? '6px' : 0 }}>{a.title}</h3>
+                            {a.summary && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.summary}</p>}
                           </div>
-                          <h3 className="font-sans text-ink" style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: a.summary ? '6px' : 0 }}>{a.title}</h3>
-                          {a.summary && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.summary}</p>}
+                          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center', paddingTop: '2px' }}>
+                            <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex' }}>
+                              <ExternalLink size={14} />
+                            </a>
+                            {savedView === 'saved' ? (
+                              <button onClick={() => toggleSaveArticle(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Quitar de guardados">
+                                <BookmarkCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
+                              </button>
+                            ) : (
+                              <button onClick={() => toggleRead(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Marcar como no leído">
+                                <CheckCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center', paddingTop: '2px' }}>
-                          <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex' }}>
-                            <ExternalLink size={14} />
-                          </a>
-                          <button onClick={() => toggleSaveArticle(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Quitar de guardados">
-                            <BookmarkCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1223,22 +1257,28 @@ export default function App() {
           {activeTab === 'pau' && (
             <div className="flex-1 flex flex-col overflow-hidden" style={{ padding: '0 48px 32px' }}>
               {!paulSessionId ? (
+                // ── Start screen ──
                 <div className="flex-1 flex flex-col items-center justify-center" style={{ gap: '20px', textAlign: 'center' }}>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Bot size={28} style={{ color: 'var(--color-accent)' }} />
+                  <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Bot size={30} style={{ color: 'var(--color-accent)' }} />
                   </div>
                   <div>
                     <h3 className="font-sans text-ink" style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>Hola, soy Pau</h3>
-                    <p className="font-serif text-ink-faint" style={{ fontSize: '15px', lineHeight: 1.7, maxWidth: '380px' }}>
-                      Te voy a hacer preguntas en español — sobre tu día, tus gustos, el fútbol, la vida. Respóndeme como puedas y te ayudo con lo que se te escape.
+                    <p className="font-serif text-ink-faint" style={{ fontSize: '15px', lineHeight: 1.7, maxWidth: '360px' }}>
+                      Te pregunto en español. Respóndeme por voz — o escribe si prefieres. Te corrijo y seguimos.
                     </p>
+                    {paulVoiceSupported && (
+                      <p className="text-ink-faint" style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                        <Mic size={12} /> micrófono disponible
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={startPauSession}
                     disabled={paulStarting}
                     style={{ padding: '13px 32px', borderRadius: '14px', background: 'var(--color-ink)', color: 'var(--color-surface)', fontSize: '15px', fontWeight: 700, cursor: paulStarting ? 'default' : 'pointer', border: 'none', opacity: paulStarting ? 0.6 : 1 }}
                   >
-                    {paulStarting ? 'Empezando…' : 'Empezar conversación →'}
+                    {paulStarting ? 'Empezando…' : 'Empezar →'}
                   </button>
                   {paulHistory.length > 0 && (
                     <p className="text-ink-faint" style={{ fontSize: '12px', fontWeight: 500 }}>
@@ -1247,18 +1287,19 @@ export default function App() {
                   )}
                 </div>
               ) : (
+                // ── Active session ──
                 <>
                   {/* Action bar */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '20px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '16px', flexShrink: 0 }}>
                     {paulHistory.length > 0 && (
                       <div ref={paulHistoryRef} style={{ position: 'relative' }}>
                         <button
                           onClick={() => setPaulShowHistory(h => !h)}
-                          style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-ink-faint)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-ink-faint)', display: 'flex', alignItems: 'center', gap: '5px' }}
                           onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
                           onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
                         >
-                          Historial <ChevronDown size={12} style={{ transform: paulShowHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+                          Historial <ChevronDown size={12} />
                         </button>
                         {paulShowHistory && (
                           <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--color-surface)', border: '1px solid var(--color-cream-mid)', borderRadius: '14px', padding: '6px', boxShadow: 'var(--shadow-dropdown)', zIndex: 20, minWidth: '200px', maxHeight: '240px', overflowY: 'auto' }}>
@@ -1282,111 +1323,145 @@ export default function App() {
                       onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
                       onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
                     >
-                      + Nueva conversación
+                      + Nueva
                     </button>
                   </div>
 
-                  {/* Chat scroll area */}
-                  <div ref={paulChatRef} className="flex-1 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                    {paulTurns.map(turn => (
+                  {/* Chat history (past completed turns) */}
+                  <div ref={paulChatRef} className="flex-1 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
+                    {paulTurns.filter(t => t.userAnswer).map(turn => (
                       <div key={turn.id}>
-                        {/* Pau's question */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
-                          <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
-                            <p className="font-serif text-ink" style={{ fontSize: '15px', lineHeight: 1.65 }}>{turn.question}</p>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '12px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                          <div style={{ background: 'var(--color-sidebar)', borderRadius: '12px', borderTopLeftRadius: '3px', padding: '12px 16px', maxWidth: '80%', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                            <p className="font-serif text-ink" style={{ fontSize: '14px', lineHeight: 1.6, flex: 1 }}>{turn.question}</p>
+                            <button onClick={() => speakPau(turn.question)} title="Escuchar" style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '2px', marginTop: '1px', color: 'var(--color-ink-faint)' }}>
+                              <Volume2 size={13} />
+                            </button>
                           </div>
                         </div>
-
-                        {/* User's answer + correction */}
-                        {turn.userAnswer && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                            <div style={{ background: 'var(--color-accent)', borderRadius: '14px', borderTopRightRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
-                              <p className="font-serif" style={{ fontSize: '15px', lineHeight: 1.65, color: 'var(--color-on-accent)' }}>{turn.userAnswer}</p>
-                            </div>
-
-                            {turn.correction && (
-                              <div style={{ maxWidth: '78%', width: '100%' }}>
-                                {turn.correction.has_error ? (
-                                  <div style={{ background: 'var(--color-sidebar)', borderRadius: '12px', padding: '14px 16px', border: '1px solid var(--color-cream-mid)' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'oklch(0.55 0.14 25)', flexShrink: 0 }}>✗</span>
-                                        <p className="font-serif" style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--color-ink-faint)', textDecoration: 'line-through' }}>{turn.correction.original}</p>
-                                      </div>
-                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'oklch(0.50 0.14 145)', flexShrink: 0 }}>✓</span>
-                                        <p className="font-serif text-ink" style={{ fontSize: '13px', lineHeight: 1.5, fontWeight: 600 }}>{turn.correction.corrected}</p>
-                                      </div>
-                                      {turn.correction.note && (
-                                        <p className="font-serif text-ink-faint" style={{ fontSize: '12px', lineHeight: 1.5, marginTop: '4px', paddingLeft: '18px' }}>{turn.correction.note}</p>
-                                      )}
-                                    </div>
-                                    {turn.savedToRevision.length > 0 && (
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--color-cream-mid)' }}>
-                                        {turn.savedToRevision.map(phrase => (
-                                          <span key={phrase} style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '6px', background: 'var(--color-accent-subtle)', color: 'var(--color-accent-subtle-text)' }}>
-                                            Guardado: {phrase}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '8px', background: 'oklch(0.96 0.03 145 / 0.6)' }}>
-                                    <Check size={12} style={{ color: 'oklch(0.50 0.14 145)', flexShrink: 0 }} />
-                                    <p style={{ fontSize: '12px', fontWeight: 600, color: 'oklch(0.42 0.12 145)' }}>Sin errores</p>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                          <div style={{ background: 'var(--color-accent)', borderRadius: '12px', borderTopRightRadius: '3px', padding: '12px 16px', maxWidth: '80%' }}>
+                            <p className="font-serif" style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--color-on-accent)' }}>{turn.userAnswer}</p>
                           </div>
-                        )}
-
-                        {/* Pau's follow-up response */}
+                          {turn.correction && (
+                            <div style={{ maxWidth: '80%', width: '100%' }}>
+                              {turn.correction.has_error ? (
+                                <div style={{ background: 'var(--color-sidebar)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--color-cream-mid)' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '7px', alignItems: 'baseline' }}>
+                                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'oklch(0.55 0.14 25)', flexShrink: 0 }}>✗</span>
+                                      <p className="font-serif" style={{ fontSize: '13px', color: 'var(--color-ink-faint)', textDecoration: 'line-through' }}>{turn.correction.original}</p>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '7px', alignItems: 'baseline' }}>
+                                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'oklch(0.50 0.14 145)', flexShrink: 0 }}>✓</span>
+                                      <p className="font-serif text-ink" style={{ fontSize: '13px', fontWeight: 600 }}>{turn.correction.corrected}</p>
+                                    </div>
+                                    {turn.correction.note && <p className="font-serif text-ink-faint" style={{ fontSize: '12px', lineHeight: 1.5, paddingLeft: '16px' }}>{turn.correction.note}</p>}
+                                  </div>
+                                  {turn.savedToRevision.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--color-cream-mid)' }}>
+                                      {turn.savedToRevision.map(phrase => (
+                                        <span key={phrase} style={{ fontSize: '11px', fontWeight: 600, padding: '2px 7px', borderRadius: '5px', background: 'var(--color-accent-subtle)', color: 'var(--color-accent-subtle-text)' }}>Guardado: {phrase}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '7px', background: 'oklch(0.96 0.03 145 / 0.6)' }}>
+                                  <Check size={11} style={{ color: 'oklch(0.50 0.14 145)' }} />
+                                  <p style={{ fontSize: '11px', fontWeight: 600, color: 'oklch(0.42 0.12 145)' }}>Sin errores</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         {turn.pauResponse && (
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '16px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
-                            <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
-                              <p className="font-serif text-ink" style={{ fontSize: '15px', lineHeight: 1.65 }}>{turn.pauResponse}</p>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '12px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                            <div style={{ background: 'var(--color-sidebar)', borderRadius: '12px', borderTopLeftRadius: '3px', padding: '12px 16px', maxWidth: '80%' }}>
+                              <p className="font-serif text-ink" style={{ fontSize: '14px', lineHeight: 1.6 }}>{turn.pauResponse}</p>
                             </div>
                           </div>
                         )}
                       </div>
                     ))}
+                  </div>
 
-                    {paulLoading && (
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
-                        <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px' }}>
-                          <p className="font-serif text-ink-faint" style={{ fontSize: '14px' }}>Pau está escribiendo…</p>
+                  {/* Current question — prominent */}
+                  {(() => {
+                    const currentTurn = paulTurns.find(t => t.id === paulCurrentTurnId);
+                    if (!currentTurn) return null;
+                    return (
+                      <div style={{ flexShrink: 0, borderTop: paulTurns.some(t => t.userAnswer) ? '1px solid var(--color-cream-mid)' : 'none', paddingTop: paulTurns.some(t => t.userAnswer) ? '24px' : 0 }}>
+                        {/* Pau's current question */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '24px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                          <div style={{ flex: 1 }}>
+                            <p className="font-serif text-ink" style={{ fontSize: '16px', lineHeight: 1.65, marginBottom: '4px' }}>{currentTurn.question}</p>
+                            {paulSpeaking && <p className="text-ink-faint" style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}><Volume2 size={11} /> hablando…</p>}
+                          </div>
+                          <button onClick={() => speakPau(currentTurn.question)} title="Escuchar de nuevo" style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: 'var(--color-ink-faint)' }}>
+                            <Volume2 size={15} />
+                          </button>
                         </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Input */}
-                  <div style={{ flexShrink: 0, marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                    <textarea
-                      data-no-lookup="true"
-                      value={paulInput}
-                      onChange={e => setPaulInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitPauAnswer(); } }}
-                      placeholder="Escribe tu respuesta en español…"
-                      rows={2}
-                      disabled={paulLoading}
-                      style={{ flex: 1, padding: '13px 16px', borderRadius: '14px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.6, color: 'var(--color-ink)', resize: 'none', outline: 'none', opacity: paulLoading ? 0.6 : 1 }}
-                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
-                    />
-                    <button
-                      onClick={submitPauAnswer}
-                      disabled={!paulInput.trim() || paulLoading}
-                      style={{ flexShrink: 0, padding: '13px 20px', borderRadius: '14px', background: paulInput.trim() && !paulLoading ? 'var(--color-ink)' : 'var(--color-cream-mid)', color: paulInput.trim() && !paulLoading ? 'var(--color-surface)' : 'var(--color-ink-faint)', fontSize: '16px', fontWeight: 700, cursor: paulInput.trim() && !paulLoading ? 'pointer' : 'default', border: 'none', lineHeight: 1 }}
-                    >
-                      →
-                    </button>
-                  </div>
+                        {paulLoading ? (
+                          <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
+                            <p className="text-ink-faint font-serif" style={{ fontSize: '14px' }}>Pau está pensando…</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Mic button — primary */}
+                            {paulVoiceSupported && (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                                <button
+                                  onClick={paulListening ? stopListening : startListening}
+                                  style={{
+                                    width: '72px', height: '72px', borderRadius: '50%',
+                                    background: paulListening ? 'oklch(0.55 0.18 25)' : 'var(--color-ink)',
+                                    border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: paulListening ? '0 0 0 8px oklch(0.55 0.18 25 / 0.15)' : 'var(--shadow-card)',
+                                    transition: 'background 0.2s ease, box-shadow 0.2s ease',
+                                  }}
+                                >
+                                  {paulListening
+                                    ? <MicOff size={28} style={{ color: 'white' }} />
+                                    : <Mic size={28} style={{ color: 'var(--color-surface)' }} />
+                                  }
+                                </button>
+                                <p className="text-ink-faint" style={{ fontSize: '12px', fontWeight: 500 }}>
+                                  {paulListening ? 'toca para parar' : 'toca para hablar'}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Transcript / text input */}
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                              <textarea
+                                data-no-lookup="true"
+                                value={paulInput}
+                                onChange={e => setPaulInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitPauAnswer(); } }}
+                                placeholder={paulVoiceSupported ? 'o escribe aquí…' : 'Escribe tu respuesta en español…'}
+                                rows={paulInput.length > 80 ? 3 : 2}
+                                style={{ flex: 1, padding: '11px 14px', borderRadius: '12px', border: `1.5px solid ${paulListening ? 'oklch(0.55 0.18 25)' : 'var(--color-cream-mid)'}`, background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.55, color: 'var(--color-ink)', resize: 'none', outline: 'none', transition: 'border-color 0.2s ease' }}
+                                onFocus={e => { if (!paulListening) e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
+                                onBlur={e => { if (!paulListening) e.currentTarget.style.borderColor = 'var(--color-cream-mid)'; }}
+                              />
+                              <button
+                                onClick={submitPauAnswer}
+                                disabled={!paulInput.trim()}
+                                style={{ flexShrink: 0, padding: '11px 18px', borderRadius: '12px', background: paulInput.trim() ? 'var(--color-ink)' : 'var(--color-cream-mid)', color: paulInput.trim() ? 'var(--color-surface)' : 'var(--color-ink-faint)', fontSize: '16px', fontWeight: 700, cursor: paulInput.trim() ? 'pointer' : 'default', border: 'none', lineHeight: 1 }}
+                              >
+                                →
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
