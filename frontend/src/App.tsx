@@ -1,4 +1,4 @@
-import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, ChevronDown, ExternalLink, Trash2, Download, Check, GraduationCap } from 'lucide-react';
+import { BookOpen, MessageSquare, Bot, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, ChevronDown, ExternalLink, Trash2, Download, Check, GraduationCap, Bookmark, BookmarkCheck, CheckCheck, Mic, MicOff, Volume2 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -13,6 +13,7 @@ const SpanishFlag = () => (
 const navItems = [
   { id: 'articles',  label: 'Artículos', sublabel: 'Articles', icon: BookOpen },
   { id: 'revision',  label: 'Revisión',  sublabel: 'Study',    icon: GraduationCap },
+  { id: 'saved',     label: 'Guardados', sublabel: 'Saved',    icon: Bookmark },
   { id: 'tweets',    label: 'Tweets',    sublabel: 'Social',   icon: MessageSquare },
   { id: 'pau',       label: 'Pau',       sublabel: 'Tutor IA', icon: Bot },
 ];
@@ -42,6 +43,36 @@ interface SavedPhrase {
   next_review: string;
 }
 
+interface PauCorrection {
+  has_error: boolean;
+  original: string;
+  corrected: string;
+  note: string | null;
+}
+
+interface PauFlaggedVocab {
+  phrase: string;
+  sentence: string;
+  note: string;
+}
+
+interface PauTurnData {
+  id: string;
+  question: string;
+  userAnswer: string | null;
+  correction: PauCorrection | null;
+  pauResponse: string | null;
+  flaggedVocab: PauFlaggedVocab[];
+  savedToRevision: string[];
+}
+
+interface PauSessionInfo {
+  id: string;
+  started_at: string;
+  last_active: string;
+  turn_count: number;
+}
+
 interface TooltipState {
   phrase: string;
   sentence: string;
@@ -65,6 +96,7 @@ const SOURCE_META: Record<string, { label: string; color: string; bg: string }> 
   mundodeportivo: { label: 'Mundo Dep.',    color: 'var(--color-badge-accent)',  bg: 'var(--color-badge-accent-bg)'  },
   lavanguardia:   { label: 'La Vanguardia', color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
   elpais:         { label: 'El País',       color: 'var(--color-badge-neutral)', bg: 'var(--color-badge-neutral-bg)' },
+  pau:            { label: 'Pau',           color: 'var(--color-badge-accent)',  bg: 'var(--color-badge-accent-bg)'  },
 };
 
 const FOOTBALL_KW = [
@@ -111,16 +143,25 @@ const THEMES = ['default', 'tuscan', 'dim', 'dark'] as const;
 type Theme = typeof THEMES[number];
 
 function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('theme') as Theme) ?? 'default';
-  });
+  const [theme, setTheme] = useState<Theme>('default');
+
+  useEffect(() => {
+    fetch('/api/prefs/theme?default=default').then(r => r.json()).then(d => {
+      const t = (THEMES.includes(d.value as Theme) ? d.value : 'default') as Theme;
+      setTheme(t);
+      document.documentElement.dataset.theme = t;
+    });
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const cycleTheme = () => setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length]);
+  const cycleTheme = () => setTheme(t => {
+    const next = THEMES[(THEMES.indexOf(t) + 1) % THEMES.length];
+    fetch('/api/prefs/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: next }) });
+    return next;
+  });
 
   return [theme, cycleTheme];
 }
@@ -209,14 +250,8 @@ export default function App() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [articleContent, setArticleContent] = useState<Record<string, string | 'loading' | 'error'>>({});
   const [narratives, setNarratives] = useState<Record<string, string | 'loading' | 'error'>>({});
-  const [articleFontSize, setArticleFontSize] = useState<number>(() => {
-    const s = localStorage.getItem('article-font-size');
-    return s ? parseInt(s, 10) : 17;
-  });
-  const [revisionFontSize, setRevisionFontSize] = useState<number>(() => {
-    const s = localStorage.getItem('revision-font-size');
-    return s ? parseInt(s, 10) : 17;
-  });
+  const [articleFontSize, setArticleFontSize] = useState<number>(17);
+  const [revisionFontSize, setRevisionFontSize] = useState<number>(17);
 
   // Filters
   const [filterSource, setFilterSource] = useState<string | null>('elpais');
@@ -232,10 +267,55 @@ export default function App() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // Read / saved articles
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [savedArticles, setSavedArticles] = useState<Article[]>([]);
+
+  const toggleRead = async (id: string) => {
+    const isRead = readIds.has(id);
+    await fetch(`/api/read/${id}`, { method: isRead ? 'DELETE' : 'POST' });
+    setReadIds(prev => {
+      const next = new Set(prev);
+      isRead ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSaveArticle = async (a: Article) => {
+    const isSaved = savedArticles.some(s => s.id === a.id);
+    if (isSaved) {
+      await fetch(`/api/saved/${a.id}`, { method: 'DELETE' });
+      setSavedArticles(s => s.filter(x => x.id !== a.id));
+    } else {
+      await fetch('/api/saved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, title: a.title, source: a.source, url: a.url, image_url: a.image_url, summary: a.summary }),
+      });
+      setSavedArticles(s => [a, ...s]);
+    }
+  };
+
   // Deck
   const [deck, setDeck] = useState<SavedPhrase[]>([]);
   const [deckLoading, setDeckLoading] = useState(false);
   const [dueCount, setDueCount] = useState(0);
+
+  // Pau
+  const [paulSessionId, setPaulSessionId] = useState<string | null>(null);
+  const [paulTurns, setPaulTurns] = useState<PauTurnData[]>([]);
+  const [paulCurrentTurnId, setPaulCurrentTurnId] = useState<string | null>(null);
+  const [paulInput, setPaulInput] = useState('');
+  const [paulLoading, setPaulLoading] = useState(false);
+  const [paulStarting, setPaulStarting] = useState(false);
+  const [paulHistory, setPaulHistory] = useState<PauSessionInfo[]>([]);
+  const [paulShowHistory, setPaulShowHistory] = useState(false);
+  const [paulListening, setPaulListening] = useState(false);
+  const [paulSpeaking, setPaulSpeaking] = useState(false);
+  const [paulVoiceSupported] = useState(() => !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition));
+  const paulChatRef = useRef<HTMLDivElement>(null);
+  const paulHistoryRef = useRef<HTMLDivElement>(null);
+  const paulRecognitionRef = useRef<any>(null);
 
   // Comprehension checks
   type ComprehensionStage = 'idle' | 'loading-q' | 'answering' | 'loading-eval' | 'done';
@@ -306,8 +386,18 @@ export default function App() {
       .finally(() => setDeckLoading(false));
   }, []);
 
-  // Load deck once on mount so the tooltip can check for duplicates
-  useEffect(() => { fetchDeck(); }, [fetchDeck]);
+  // Load all persisted state on mount
+  useEffect(() => {
+    fetchDeck();
+    fetch('/api/read').then(r => r.json()).then((ids: string[]) => setReadIds(new Set(ids)));
+    fetch('/api/prefs/article-font-size?default=17').then(r => r.json()).then(d => setArticleFontSize(parseInt(d.value, 10) || 17));
+    fetch('/api/prefs/revision-font-size?default=17').then(r => r.json()).then(d => setRevisionFontSize(parseInt(d.value, 10) || 17));
+  }, [fetchDeck]);
+
+  useEffect(() => {
+    if (activeTab !== 'saved') return;
+    fetch('/api/saved').then(r => r.json()).then(setSavedArticles).catch(() => {});
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab !== 'revision') return;
@@ -339,19 +429,37 @@ export default function App() {
     return () => document.removeEventListener('mousedown', h);
   }, [showRevisionFilter]);
 
+  useEffect(() => {
+    if (!paulShowHistory) return;
+    const h = (e: MouseEvent) => { if (!paulHistoryRef.current?.contains(e.target as Node)) setPaulShowHistory(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [paulShowHistory]);
+
+  useEffect(() => {
+    if (activeTab !== 'pau') return;
+    fetch('/api/pau/sessions').then(r => r.json()).then(setPaulHistory).catch(() => {});
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (paulChatRef.current) {
+      paulChatRef.current.scrollTop = paulChatRef.current.scrollHeight;
+    }
+  }, [paulTurns, paulLoading]);
+
   // ── Handlers ──
 
   const adjustFontSize = (delta: number) => {
     if (activeTab === 'articles') {
       setArticleFontSize(prev => {
         const next = Math.max(14, Math.min(26, prev + delta));
-        localStorage.setItem('article-font-size', String(next));
+        fetch('/api/prefs/article-font-size', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: next }) });
         return next;
       });
     } else {
       setRevisionFontSize(prev => {
         const next = Math.max(14, Math.min(26, prev + delta));
-        localStorage.setItem('revision-font-size', String(next));
+        fetch('/api/prefs/revision-font-size', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: next }) });
         return next;
       });
     }
@@ -497,6 +605,96 @@ export default function App() {
     setFeedback(null);
   };
 
+  const speakPau = useCallback((text: string) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.rate = 0.88;
+    utterance.onstart = () => setPaulSpeaking(true);
+    utterance.onend = () => setPaulSpeaking(false);
+    utterance.onerror = () => setPaulSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  const startListening = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    window.speechSynthesis?.cancel();
+    setPaulSpeaking(false);
+    const recognition = new SR();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.onresult = (e: any) => {
+      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join('');
+      setPaulInput(transcript);
+    };
+    recognition.onend = () => { setPaulListening(false); paulRecognitionRef.current = null; };
+    recognition.onerror = () => { setPaulListening(false); paulRecognitionRef.current = null; };
+    paulRecognitionRef.current = recognition;
+    recognition.start();
+    setPaulListening(true);
+  }, []);
+
+  const stopListening = useCallback(() => {
+    paulRecognitionRef.current?.stop();
+    setPaulListening(false);
+  }, []);
+
+  const startPauSession = async () => {
+    setPaulStarting(true);
+    const res = await fetch('/api/pau/sessions', { method: 'POST' })
+      .then(r => r.json()).catch(() => null);
+    if (!res) { setPaulStarting(false); return; }
+    setPaulSessionId(res.session_id);
+    setPaulCurrentTurnId(res.turn_id);
+    setPaulTurns([{ id: res.turn_id, question: res.question, userAnswer: null, correction: null, pauResponse: null, flaggedVocab: [], savedToRevision: [] }]);
+    setPaulInput('');
+    setPaulStarting(false);
+    speakPau(res.question);
+  };
+
+  const submitPauAnswer = async () => {
+    if (!paulSessionId || !paulCurrentTurnId || !paulInput.trim() || paulLoading) return;
+    stopListening();
+    const answer = paulInput.trim();
+    setPaulInput('');
+    setPaulLoading(true);
+    setPaulTurns(turns => turns.map(t => t.id === paulCurrentTurnId ? { ...t, userAnswer: answer } : t));
+    const res = await fetch(`/api/pau/sessions/${paulSessionId}/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ turn_id: paulCurrentTurnId, answer }),
+    }).then(r => r.json()).catch(() => null);
+    setPaulLoading(false);
+    if (!res) return;
+    setPaulTurns(turns => {
+      const updated = turns.map(t =>
+        t.id === paulCurrentTurnId
+          ? { ...t, correction: res.correction, pauResponse: res.pau_response, flaggedVocab: res.flagged_vocab || [], savedToRevision: res.saved_to_revision || [] }
+          : t
+      );
+      return [...updated, { id: res.next_turn_id, question: res.next_question, userAnswer: null, correction: null, pauResponse: null, flaggedVocab: [], savedToRevision: [] }];
+    });
+    setPaulCurrentTurnId(res.next_turn_id);
+    if (res.saved_to_revision?.length > 0) fetchDeck();
+    // Speak response then next question
+    const toSpeak = [res.pau_response, res.next_question].filter(Boolean).join('. ');
+    speakPau(toSpeak);
+  };
+
+  const resetPauSession = () => {
+    stopListening();
+    window.speechSynthesis?.cancel();
+    setPaulSpeaking(false);
+    setPaulSessionId(null);
+    setPaulTurns([]);
+    setPaulCurrentTurnId(null);
+    setPaulInput('');
+    fetch('/api/pau/sessions').then(r => r.json()).then(setPaulHistory).catch(() => {});
+  };
+
   // ── Derived ──
 
   const availableSources = [...new Set(articles.map(a => a.source))];
@@ -510,7 +708,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-4 md:p-8 lg:p-12">
-      <div className="w-full flex overflow-hidden" style={{ maxWidth: '1280px', height: '90vh', background: 'var(--color-surface)', borderRadius: '28px', boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border-card)' }}>
+      <div className="w-full flex overflow-hidden" style={{ maxWidth: '1800px', height: '90vh', background: 'var(--color-surface)', borderRadius: '28px', boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border-card)' }}>
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} collapsed={collapsed} setCollapsed={setCollapsed} cycleTheme={cycleTheme} />
 
         <main className="flex-1 bg-surface flex flex-col overflow-hidden">
@@ -607,7 +805,7 @@ export default function App() {
                       <article key={a.id} style={{ padding: '24px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none' }}>
 
                         {/* Card header row */}
-                        <button onClick={() => handleExpand(a.id)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: '16px', alignItems: 'flex-start', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                        <button onClick={() => handleExpand(a.id)} style={{ width: '100%', textAlign: 'left', display: 'flex', gap: '16px', alignItems: 'flex-start', cursor: 'pointer', background: 'none', border: 'none', padding: 0, opacity: readIds.has(a.id) ? 0.45 : 1, transition: 'opacity 0.2s ease' }}>
                           {a.image_url && <img src={a.image_url} alt="" style={{ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, marginTop: '14px' }} />}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -621,6 +819,34 @@ export default function App() {
                             {a.summary && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.summary}</p>}
                           </div>
                         </button>
+
+                        {/* Article actions */}
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingLeft: a.image_url ? '88px' : '0' }}>
+                          {(() => {
+                            const isSaved = savedArticles.some(s => s.id === a.id);
+                            const isRead = readIds.has(a.id);
+                            return (
+                              <>
+                                <button
+                                  onClick={() => toggleSaveArticle(a)}
+                                  style={{ padding: '5px 13px', borderRadius: '8px', border: `1.5px solid ${isSaved ? 'oklch(0.58 0.135 42)' : 'var(--color-cream-mid)'}`, background: 'transparent', fontSize: '12px', fontWeight: 600, color: isSaved ? 'oklch(0.58 0.135 42)' : 'var(--color-ink-secondary)', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
+                                  onMouseEnter={e => { if (!isSaved) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; } }}
+                                  onMouseLeave={e => { if (!isSaved) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; } }}
+                                >
+                                  {isSaved ? 'Guardado' : 'Guardar'}
+                                </button>
+                                <button
+                                  onClick={() => toggleRead(a.id)}
+                                  style={{ padding: '5px 13px', borderRadius: '8px', border: `1.5px solid ${isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-cream-mid)'}`, background: 'transparent', fontSize: '12px', fontWeight: 600, color: isRead ? 'oklch(0.58 0.135 42)' : 'var(--color-ink-secondary)', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s' }}
+                                  onMouseEnter={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-ink-faint)'; } }}
+                                  onMouseLeave={e => { if (!isRead) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-cream-mid)'; } }}
+                                >
+                                  {isRead ? 'Leído ✓' : 'Marcar leído'}
+                                </button>
+                              </>
+                            );
+                          })()}
+                        </div>
 
                         {/* Expanded content */}
                         {isExpanded && (
@@ -954,10 +1180,215 @@ export default function App() {
             </div>
           )}
 
+          {/* ── Guardados tab ── */}
+          {activeTab === 'saved' && (
+            <div className="flex-1 overflow-y-auto" style={{ padding: '0 48px 48px' }}>
+              {savedArticles.length === 0 ? (
+                <p className="text-ink-faint font-serif" style={{ fontSize: '16px', lineHeight: 1.7, maxWidth: '480px' }}>
+                  No has guardado ningún artículo todavía. Usa el icono de marcador en cada artículo para guardarlo aquí.
+                </p>
+              ) : (
+                <div>
+                  {savedArticles.map((a, i) => {
+                    const meta = SOURCE_META[a.source] ?? { label: a.source, color: 'oklch(0.40 0.010 58)', bg: 'oklch(0.93 0.008 68)' };
+                    const dateStr = a.published_at ?? a.fetched_at;
+                    return (
+                      <div key={a.id} style={{ padding: '20px 0', borderTop: i > 0 ? '1px solid var(--color-cream-mid)' : 'none', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                        {a.image_url && <img src={a.image_url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, marginTop: '2px' }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', padding: '3px 8px', borderRadius: '6px', color: meta.color, background: meta.bg }}>{meta.label}</span>
+                            <span className="text-ink-faint" style={{ fontSize: '13px', fontWeight: 500 }}>{timeAgo(dateStr)}</span>
+                          </div>
+                          <h3 className="font-sans text-ink" style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: a.summary ? '6px' : 0 }}>{a.title}</h3>
+                          {a.summary && <p className="font-serif text-ink-faint" style={{ fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.summary}</p>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center', paddingTop: '2px' }}>
+                          <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex' }}>
+                            <ExternalLink size={14} />
+                          </a>
+                          <button onClick={() => toggleSaveArticle(a)} className="text-ink-faint hover:text-ink transition-colors" style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} title="Quitar de guardados">
+                            <BookmarkCheck size={14} style={{ color: 'oklch(0.58 0.135 42)' }} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Pau tab ── */}
           {activeTab === 'pau' && (
-            <div className="flex-1 flex items-center justify-center" style={{ padding: '48px' }}>
-              <p className="text-ink-faint font-serif" style={{ fontSize: '16px', textAlign: 'center' }}>Pau está en construcción.</p>
+            <div className="flex-1 flex flex-col overflow-hidden" style={{ padding: '0 48px 32px' }}>
+              {!paulSessionId ? (
+                <div className="flex-1 flex flex-col items-center justify-center" style={{ gap: '20px', textAlign: 'center' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Bot size={28} style={{ color: 'var(--color-accent)' }} />
+                  </div>
+                  <div>
+                    <h3 className="font-sans text-ink" style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>Hola, soy Pau</h3>
+                    <p className="font-serif text-ink-faint" style={{ fontSize: '15px', lineHeight: 1.7, maxWidth: '380px' }}>
+                      Te voy a hacer preguntas en español — sobre tu día, tus gustos, el fútbol, la vida. Respóndeme como puedas y te ayudo con lo que se te escape.
+                    </p>
+                  </div>
+                  <button
+                    onClick={startPauSession}
+                    disabled={paulStarting}
+                    style={{ padding: '13px 32px', borderRadius: '14px', background: 'var(--color-ink)', color: 'var(--color-surface)', fontSize: '15px', fontWeight: 700, cursor: paulStarting ? 'default' : 'pointer', border: 'none', opacity: paulStarting ? 0.6 : 1 }}
+                  >
+                    {paulStarting ? 'Empezando…' : 'Empezar conversación →'}
+                  </button>
+                  {paulHistory.length > 0 && (
+                    <p className="text-ink-faint" style={{ fontSize: '12px', fontWeight: 500 }}>
+                      {paulHistory.length} {paulHistory.length === 1 ? 'conversación anterior' : 'conversaciones anteriores'}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Action bar */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '20px', flexShrink: 0 }}>
+                    {paulHistory.length > 0 && (
+                      <div ref={paulHistoryRef} style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => setPaulShowHistory(h => !h)}
+                          style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-ink-faint)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
+                          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                        >
+                          Historial <ChevronDown size={12} style={{ transform: paulShowHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+                        </button>
+                        {paulShowHistory && (
+                          <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--color-surface)', border: '1px solid var(--color-cream-mid)', borderRadius: '14px', padding: '6px', boxShadow: 'var(--shadow-dropdown)', zIndex: 20, minWidth: '200px', maxHeight: '240px', overflowY: 'auto' }}>
+                            {paulHistory.map(s => (
+                              <div key={s.id} style={{ padding: '9px 12px', borderRadius: '8px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-ink)', display: 'block' }}>
+                                  {new Date(s.started_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                                <span style={{ fontSize: '12px', color: 'var(--color-ink-faint)' }}>
+                                  {s.turn_count} {s.turn_count === 1 ? 'turno' : 'turnos'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={resetPauSession}
+                      style={{ padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-ink-faint)' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                    >
+                      + Nueva conversación
+                    </button>
+                  </div>
+
+                  {/* Chat scroll area */}
+                  <div ref={paulChatRef} className="flex-1 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                    {paulTurns.map(turn => (
+                      <div key={turn.id}>
+                        {/* Pau's question */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                          <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
+                            <p className="font-serif text-ink" style={{ fontSize: '15px', lineHeight: 1.65 }}>{turn.question}</p>
+                          </div>
+                        </div>
+
+                        {/* User's answer + correction */}
+                        {turn.userAnswer && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                            <div style={{ background: 'var(--color-accent)', borderRadius: '14px', borderTopRightRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
+                              <p className="font-serif" style={{ fontSize: '15px', lineHeight: 1.65, color: 'var(--color-on-accent)' }}>{turn.userAnswer}</p>
+                            </div>
+
+                            {turn.correction && (
+                              <div style={{ maxWidth: '78%', width: '100%' }}>
+                                {turn.correction.has_error ? (
+                                  <div style={{ background: 'var(--color-sidebar)', borderRadius: '12px', padding: '14px 16px', border: '1px solid var(--color-cream-mid)' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'oklch(0.55 0.14 25)', flexShrink: 0 }}>✗</span>
+                                        <p className="font-serif" style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--color-ink-faint)', textDecoration: 'line-through' }}>{turn.correction.original}</p>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'oklch(0.50 0.14 145)', flexShrink: 0 }}>✓</span>
+                                        <p className="font-serif text-ink" style={{ fontSize: '13px', lineHeight: 1.5, fontWeight: 600 }}>{turn.correction.corrected}</p>
+                                      </div>
+                                      {turn.correction.note && (
+                                        <p className="font-serif text-ink-faint" style={{ fontSize: '12px', lineHeight: 1.5, marginTop: '4px', paddingLeft: '18px' }}>{turn.correction.note}</p>
+                                      )}
+                                    </div>
+                                    {turn.savedToRevision.length > 0 && (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--color-cream-mid)' }}>
+                                        {turn.savedToRevision.map(phrase => (
+                                          <span key={phrase} style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '6px', background: 'var(--color-accent-subtle)', color: 'var(--color-accent-subtle-text)' }}>
+                                            Guardado: {phrase}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '8px', background: 'oklch(0.96 0.03 145 / 0.6)' }}>
+                                    <Check size={12} style={{ color: 'oklch(0.50 0.14 145)', flexShrink: 0 }} />
+                                    <p style={{ fontSize: '12px', fontWeight: 600, color: 'oklch(0.42 0.12 145)' }}>Sin errores</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Pau's follow-up response */}
+                        {turn.pauResponse && (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '16px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                            <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px', maxWidth: '78%' }}>
+                              <p className="font-serif text-ink" style={{ fontSize: '15px', lineHeight: 1.65 }}>{turn.pauResponse}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {paulLoading && (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--color-accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-accent)' }}>P</div>
+                        <div style={{ background: 'var(--color-sidebar)', borderRadius: '14px', borderTopLeftRadius: '4px', padding: '14px 18px' }}>
+                          <p className="font-serif text-ink-faint" style={{ fontSize: '14px' }}>Pau está escribiendo…</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Input */}
+                  <div style={{ flexShrink: 0, marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                    <textarea
+                      data-no-lookup="true"
+                      value={paulInput}
+                      onChange={e => setPaulInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitPauAnswer(); } }}
+                      placeholder="Escribe tu respuesta en español…"
+                      rows={2}
+                      disabled={paulLoading}
+                      style={{ flex: 1, padding: '13px 16px', borderRadius: '14px', border: '1.5px solid var(--color-cream-mid)', background: 'var(--color-surface)', fontSize: '15px', fontFamily: 'var(--font-serif)', lineHeight: 1.6, color: 'var(--color-ink)', resize: 'none', outline: 'none', opacity: paulLoading ? 0.6 : 1 }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
+                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
+                    />
+                    <button
+                      onClick={submitPauAnswer}
+                      disabled={!paulInput.trim() || paulLoading}
+                      style={{ flexShrink: 0, padding: '13px 20px', borderRadius: '14px', background: paulInput.trim() && !paulLoading ? 'var(--color-ink)' : 'var(--color-cream-mid)', color: paulInput.trim() && !paulLoading ? 'var(--color-surface)' : 'var(--color-ink-faint)', fontSize: '16px', fontWeight: 700, cursor: paulInput.trim() && !paulLoading ? 'pointer' : 'default', border: 'none', lineHeight: 1 }}
+                    >
+                      →
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

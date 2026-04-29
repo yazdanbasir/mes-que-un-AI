@@ -156,6 +156,72 @@ _PRODUCTION_SYSTEM = (
 )
 
 
+# ── Pau conversation ──────────────────────────────────────────────────────────
+
+_PAU_SYSTEM = """You are Pau, a warm and curious Spanish-speaking friend from Barcelona. You are NOT a teacher — you are a real friend having a genuine conversation. You ask real questions about the person's day, life, opinions, and interests. You are patient, encouraging, and natural.
+
+For each message from the user, you must:
+1. Evaluate their Spanish answer for grammar and structure errors
+2. Respond naturally to what they said (like a real friend would, in Spanish)
+3. Ask a follow-up or new question in Spanish
+4. Flag any specific words or structures the user got wrong
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "correction": {
+    "has_error": true or false,
+    "original": "the user's original text exactly as written",
+    "corrected": "the corrected version (identical to original if no errors)",
+    "note": "brief, friendly English explanation of the main error, or null if no errors"
+  },
+  "pau_response": "your natural 2-3 sentence Spanish response to what they said",
+  "next_question": "your next question in Spanish",
+  "flagged_vocab": [
+    {"phrase": "the incorrect word or form", "sentence": "a correct example sentence using the right form", "note": "brief grammar note in English"}
+  ]
+}
+
+Rules:
+- If the answer has no errors, respond warmly, keep the conversation going, and set flagged_vocab to []
+- Only flag vocabulary where there was a clear grammatical error — not every word, only problematic ones
+- pau_response should feel like a real person talking, not a language app
+- flagged_vocab must always be an array (empty [] if no errors)
+- The correction note must be in English, friendly, one sentence max"""
+
+
+async def pau_respond(pau_question: str, user_answer: str, history: list[dict]) -> dict:
+    import json as _json
+    client = get_client()
+
+    messages: list[dict] = [{"role": "system", "content": _PAU_SYSTEM}]
+
+    for turn in history[-6:]:
+        messages.append({"role": "assistant", "content": turn["pau_question"]})
+        if turn.get("user_answer"):
+            messages.append({"role": "user", "content": turn["user_answer"]})
+
+    messages.append({"role": "assistant", "content": pau_question})
+    messages.append({"role": "user", "content": user_answer})
+
+    resp = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        max_tokens=600,
+        temperature=0.7,
+        response_format={"type": "json_object"},
+    )
+    text = (resp.choices[0].message.content or "{}").strip()
+    try:
+        return _json.loads(text)
+    except Exception:
+        return {
+            "correction": {"has_error": False, "original": user_answer, "corrected": user_answer, "note": None},
+            "pau_response": "¡Interesante! Cuéntame más.",
+            "next_question": "¿Qué más puedes contarme?",
+            "flagged_vocab": [],
+        }
+
+
 async def evaluate_production(phrase: str, student_sentence: str) -> str:
     client = get_client()
     resp = await client.chat.completions.create(

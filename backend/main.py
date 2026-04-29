@@ -16,6 +16,7 @@ import db
 from fetchers.article import fetch_article_text
 from fetchers.rss import fetch_all
 from models import Article, ReviewResult
+from pau_questions import get_opening_question
 
 
 async def _refresh() -> None:
@@ -139,6 +140,70 @@ async def lookup(req: LookupRequest):
         raise HTTPException(status_code=502, detail=str(e))
 
 
+# ── Saved articles ────────────────────────────────────────────────────────────
+
+class SaveArticleRequest(BaseModel):
+    id: str
+    title: str
+    source: str
+    url: str
+    image_url: Optional[str] = None
+    summary: Optional[str] = None
+
+
+@app.post("/api/saved")
+def save_article(req: SaveArticleRequest):
+    db.save_article({
+        "id":        req.id,
+        "title":     req.title,
+        "source":    req.source,
+        "url":       req.url,
+        "image_url": req.image_url,
+        "summary":   req.summary,
+        "saved_at":  datetime.now(timezone.utc).isoformat(),
+    })
+    return {"status": "ok"}
+
+
+@app.get("/api/saved")
+def get_saved():
+    return db.get_saved_articles()
+
+
+@app.delete("/api/saved/{article_id}")
+def unsave_article(article_id: str):
+    db.unsave_article(article_id)
+    return {"status": "ok"}
+
+
+@app.get("/api/prefs/{key}")
+def get_pref(key: str, default: str = ""):
+    return {"value": db.get_pref(key, default)}
+
+
+@app.post("/api/prefs/{key}")
+def set_pref(key: str, body: dict):
+    db.set_pref(key, str(body.get("value", "")))
+    return {"status": "ok"}
+
+
+@app.get("/api/read")
+def get_read():
+    return db.get_read_ids()
+
+
+@app.post("/api/read/{article_id}")
+def mark_read(article_id: str):
+    db.mark_read(article_id)
+    return {"status": "ok"}
+
+
+@app.delete("/api/read/{article_id}")
+def unmark_read(article_id: str):
+    db.unmark_read(article_id)
+    return {"status": "ok"}
+
+
 # ── Deck ──────────────────────────────────────────────────────────────────────
 
 class SavePhraseRequest(BaseModel):
@@ -225,3 +290,98 @@ async def evaluate_production(phrase_id: str, req: ProductionRequest):
         return {"feedback": feedback}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+# ── Pau ───────────────────────────────────────────────────────────────────────
+
+class PauRespondRequest(BaseModel):
+    turn_id: str
+    answer: str
+
+
+@app.post("/api/pau/sessions")
+def start_pau_session():
+    session = db.create_pau_session()
+    opening = get_opening_question()
+    turn = db.create_pau_turn(session["id"], opening["question"])
+    return {
+        "session_id": session["id"],
+        "question": opening["question"],
+        "turn_id": turn["id"],
+    }
+
+
+@app.post("/api/pau/sessions/{session_id}/respond")
+async def respond_to_pau(session_id: str, req: PauRespondRequest):
+    import json as _json
+
+    session_data = db.get_pau_session(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    current_turn = next((t for t in session_data["turns"] if t["id"] == req.turn_id), None)
+    if not current_turn:
+        raise HTTPException(status_code=404, detail="Turn not found")
+
+    history = [t for t in session_data["turns"] if t.get("user_answer")]
+
+    try:
+        result = await ai.pau_respond(current_turn["pau_question"], req.answer.strip(), history)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    correction = result.get("correction", {})
+    pau_response = result.get("pau_response", "¡Interesante!")
+    next_question = result.get("next_question", "¿Qué más puedes contarme?")
+    flagged_vocab = result.get("flagged_vocab", [])
+
+    db.complete_pau_turn(
+        req.turn_id,
+        req.answer.strip(),
+        correction.get("corrected", req.answer),
+        correction.get("note"),
+        _json.dumps(flagged_vocab),
+    )
+
+    saved_to_revision = []
+    for item in flagged_vocab:
+        if item.get("phrase"):
+            phrase_id = uuid.uuid4().hex
+            db.save_phrase({
+                "id":          phrase_id,
+                "phrase":      item["phrase"],
+                "sentence":    item.get("sentence", ""),
+                "translation": None,
+                "definition":  item.get("note", ""),
+                "category":    "gramática",
+                "article_id":  None,
+                "source":      "pau",
+                "saved_at":    datetime.now(timezone.utc).isoformat(),
+                "srs_stage":   0,
+                "next_review": datetime.now(timezone.utc).isoformat(),
+            })
+            saved_to_revision.append(item["phrase"])
+
+    next_turn = db.create_pau_turn(session_id, next_question)
+
+    return {
+        "correction": correction,
+        "pau_response": pau_response,
+        "next_question": next_question,
+        "next_turn_id": next_turn["id"],
+        "flagged_vocab": flagged_vocab,
+        "saved_to_revision": saved_to_revision,
+    }
+
+
+@app.get("/api/pau/sessions")
+def get_pau_sessions():
+    return db.get_pau_sessions()
+
+
+@app.get("/api/pau/sessions/{session_id}")
+def get_pau_session(session_id: str):
+    session = db.get_pau_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
