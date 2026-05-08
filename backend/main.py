@@ -1,7 +1,10 @@
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
+
+import httpx
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
@@ -108,7 +111,7 @@ class ComprehensionEvalRequest(BaseModel):
 async def get_comprehension_questions(article_id: str, req: ComprehensionRequest):
     try:
         questions = await ai.generate_comprehension_questions(req.content)
-        return {"questions": questions}
+        return questions
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -295,6 +298,53 @@ async def evaluate_production(phrase_id: str, req: ProductionRequest):
         return {"feedback": feedback}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/pau/tts")
+async def text_to_speech(req: TTSRequest):
+    from fastapi.responses import Response
+
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+
+    key = os.environ.get("AZURE_SPEECH_KEY")
+    region = os.environ.get("AZURE_SPEECH_REGION", "eastus")
+    if not key:
+        raise HTTPException(status_code=503, detail="AZURE_SPEECH_KEY not configured")
+
+    # Escape XML special chars to prevent SSML injection
+    safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    ssml = (
+        f"<speak version='1.0' xml:lang='es-ES'>"
+        f"<voice xml:lang='es-ES' xml:gender='Female' name='es-ES-ElviraNeural'>"
+        f"{safe}"
+        f"</voice></speak>"
+    )
+
+    url = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url,
+            content=ssml.encode("utf-8"),
+            headers={
+                "Ocp-Apim-Subscription-Key": key,
+                "Content-Type": "application/ssml+xml",
+                "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+            },
+            timeout=15,
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Azure TTS error {resp.status_code}")
+
+    return Response(content=resp.content, media_type="audio/mpeg")
 
 
 # ── Pau ───────────────────────────────────────────────────────────────────────

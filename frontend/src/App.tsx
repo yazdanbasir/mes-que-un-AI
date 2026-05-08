@@ -325,6 +325,7 @@ export default function App() {
   const paulChatRef = useRef<HTMLDivElement>(null);
   const paulHistoryRef = useRef<HTMLDivElement>(null);
   const paulRecognitionRef = useRef<any>(null);
+  const paulAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Comprehension checks
   type ComprehensionStage = 'idle' | 'loading-q' | 'answering' | 'loading-eval' | 'done';
@@ -334,19 +335,20 @@ export default function App() {
     starters: string[];
     answers: string[];
     feedback: string;
+    shownStarters: boolean[];
   }
   const [comprehension, setComprehension] = useState<Record<string, ComprehensionState>>({});
 
   const startComprehension = async (articleId: string) => {
     const content = articleContent[articleId];
     if (typeof content !== 'string') return;
-    setComprehension(c => ({ ...c, [articleId]: { stage: 'loading-q', questions: [], starters: [], answers: [], feedback: '' } }));
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'loading-q', questions: [], starters: [], answers: [], feedback: '', shownStarters: [] } }));
     const res = await fetch(`/api/articles/${articleId}/comprehension/questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     }).then(r => r.json()).catch(() => ({ questions: [], starters: [] }));
-    setComprehension(c => ({ ...c, [articleId]: { stage: 'answering', questions: res.questions ?? [], starters: res.starters ?? [], answers: (res.questions ?? []).map(() => ''), feedback: '' } }));
+    setComprehension(c => ({ ...c, [articleId]: { stage: 'answering', questions: res.questions ?? [], starters: res.starters ?? [], answers: (res.questions ?? []).map(() => ''), feedback: '', shownStarters: (res.questions ?? []).map(() => false) } }));
   };
 
   const submitComprehension = async (articleId: string) => {
@@ -616,39 +618,83 @@ export default function App() {
     setFeedback(null);
   };
 
-  const speakPau = useCallback((text: string) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES';
-    utterance.rate = 0.88;
-    utterance.onstart = () => setPaulSpeaking(true);
-    utterance.onend = () => setPaulSpeaking(false);
-    utterance.onerror = () => setPaulSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+  const stopPauAudio = useCallback(() => {
+    if (paulAudioRef.current) {
+      paulAudioRef.current.pause();
+      paulAudioRef.current = null;
+    }
+    setPaulSpeaking(false);
   }, []);
+
+  const speakPau = useCallback(async (text: string) => {
+    stopPauAudio();
+    setPaulSpeaking(true);
+    try {
+      const res = await fetch('/api/pau/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      paulAudioRef.current = audio;
+      audio.onended = () => { setPaulSpeaking(false); URL.revokeObjectURL(url); paulAudioRef.current = null; };
+      audio.onerror = () => { setPaulSpeaking(false); URL.revokeObjectURL(url); paulAudioRef.current = null; };
+      await audio.play();
+    } catch {
+      setPaulSpeaking(false);
+    }
+  }, [stopPauAudio]);
+
+  const paulShouldListenRef = useRef(false);
 
   const startListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
-    window.speechSynthesis?.cancel();
-    setPaulSpeaking(false);
-    const recognition = new SR();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-    recognition.onresult = (e: any) => {
-      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join('');
-      setPaulInput(transcript);
+    stopPauAudio();
+    paulShouldListenRef.current = true;
+
+    const createRecognition = () => {
+      const recognition = new SR();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = true;
+      recognition.continuous = true;
+      recognition.onresult = (e: any) => {
+        const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join('');
+        setPaulInput(transcript);
+      };
+      recognition.onend = () => {
+        // restart unless user explicitly stopped
+        if (paulShouldListenRef.current) {
+          try { const r = createRecognition(); paulRecognitionRef.current = r; r.start(); }
+          catch { setPaulListening(false); paulShouldListenRef.current = false; }
+        } else {
+          setPaulListening(false);
+          paulRecognitionRef.current = null;
+        }
+      };
+      recognition.onerror = (e: any) => {
+        // not-allowed = mic permission denied, don't restart
+        if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+          paulShouldListenRef.current = false;
+          setPaulListening(false);
+          paulRecognitionRef.current = null;
+        }
+        // for no-speech / network errors, onend will fire and restart
+      };
+      return recognition;
     };
-    recognition.onend = () => { setPaulListening(false); paulRecognitionRef.current = null; };
-    recognition.onerror = () => { setPaulListening(false); paulRecognitionRef.current = null; };
+
+    const recognition = createRecognition();
     paulRecognitionRef.current = recognition;
     recognition.start();
     setPaulListening(true);
-  }, []);
+  }, [stopPauAudio]);
 
   const stopListening = useCallback(() => {
+    paulShouldListenRef.current = false;
     paulRecognitionRef.current?.stop();
     setPaulListening(false);
   }, []);
@@ -697,8 +743,7 @@ export default function App() {
 
   const resetPauSession = () => {
     stopListening();
-    window.speechSynthesis?.cancel();
-    setPaulSpeaking(false);
+    stopPauAudio();
     setPaulSessionId(null);
     setPaulTurns([]);
     setPaulCurrentTurnId(null);
@@ -960,15 +1005,27 @@ export default function App() {
                                           onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
                                           onBlur={e => (e.currentTarget.style.borderColor = 'var(--color-cream-mid)')}
                                         />
-                                        {starter && !cs.answers[qi]?.trim() && (
-                                          <button
-                                            onClick={() => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? starter + ' ' : ans) } }))}
-                                            style={{ marginTop: '6px', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '12px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer', fontFamily: 'var(--font-serif)' }}
-                                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
-                                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
-                                          >
-                                            ↳ {starter}…
-                                          </button>
+                                        {starter && (
+                                          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button
+                                              onClick={() => setComprehension(c => ({ ...c, [a.id]: { ...cs, shownStarters: cs.shownStarters.map((v, i) => i === qi ? !v : v) } }))}
+                                              style={{ padding: '3px 9px', borderRadius: '6px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '11px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer' }}
+                                              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
+                                              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                                            >
+                                              {cs.shownStarters[qi] ? 'ocultar pista' : 'ver pista'}
+                                            </button>
+                                            {cs.shownStarters[qi] && !cs.answers[qi]?.trim() && (
+                                              <button
+                                                onClick={() => setComprehension(c => ({ ...c, [a.id]: { ...cs, answers: cs.answers.map((ans, i) => i === qi ? starter + ' ' : ans) } }))}
+                                                style={{ padding: '3px 9px', borderRadius: '6px', border: '1px solid var(--color-cream-mid)', background: 'transparent', fontSize: '11px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer', fontFamily: 'var(--font-serif)' }}
+                                                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-hover)'}
+                                                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                                              >
+                                                ↳ {starter}…
+                                              </button>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
                                     );
@@ -1000,7 +1057,7 @@ export default function App() {
                                     );
                                   })}
                                   <button
-                                    onClick={() => setComprehension(c => ({ ...c, [a.id]: { stage: 'idle', questions: [], starters: [], answers: [], feedback: '' } }))}
+                                    onClick={() => setComprehension(c => ({ ...c, [a.id]: { stage: 'idle', questions: [], starters: [], answers: [], feedback: '', shownStarters: [] } }))}
                                     style={{ marginTop: '8px', padding: '9px 18px', borderRadius: '10px', border: '1.5px solid var(--color-cream-mid)', background: 'transparent', fontSize: '13px', fontWeight: 600, color: 'var(--color-ink-faint)', cursor: 'pointer' }}
                                   >
                                     Intentar de nuevo
@@ -1378,7 +1435,7 @@ export default function App() {
                             {paulVoiceSupported && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                                 <button
-                                  onClick={paulListening ? stopListening : startListening}
+                                  onClick={paulListening ? () => { stopListening(); setTimeout(submitPauAnswer, 100); } : startListening}
                                   style={{
                                     width: '72px', height: '72px', borderRadius: '50%',
                                     background: paulListening ? 'oklch(0.55 0.18 25)' : 'var(--color-ink)',
@@ -1393,7 +1450,7 @@ export default function App() {
                                   }
                                 </button>
                                 <p className="text-ink-faint" style={{ fontSize: '12px', fontWeight: 500 }}>
-                                  {paulListening ? 'toca para parar' : 'toca para hablar'}
+                                  {paulListening ? 'toca para enviar' : 'toca para hablar'}
                                 </p>
                               </div>
                             )}
